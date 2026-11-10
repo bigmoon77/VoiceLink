@@ -1,5 +1,7 @@
 #include "tts_controller.h"
 
+#include <winrt/base.h>
+
 #include <algorithm>
 #include <functional>
 #include <memory>
