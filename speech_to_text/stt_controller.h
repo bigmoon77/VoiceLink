@@ -42,6 +42,7 @@ private:
     void update_buttons();
     void commit_alternate(std::uint64_t result_id, std::size_t alternate_index);
     void submit_adaptation(const std::wstring& text);
+    void submit_adaptation_batch(const std::vector<std::wstring>& texts, std::size_t repetitions);
 
     main_window& _window;
     std::unique_ptr<speech_recognition_engine> _engine;
