@@ -117,7 +117,7 @@ std::wstring main_window::get_text() const
     }
 
     const int length = GetWindowTextLengthW(_text_edit);
-    std::vector<wchar_t> buffer(static_cast<size_t>(length) + 1, L'\\0');
+    std::vector<wchar_t> buffer(static_cast<size_t>(length) + 1, L'\0');
     const int copied = GetWindowTextW(_text_edit, buffer.data(), length + 1);
     return std::wstring(buffer.data(), static_cast<size_t>(std::max(copied, 0)));
 }
