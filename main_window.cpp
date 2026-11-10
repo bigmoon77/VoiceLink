@@ -478,7 +478,7 @@ bool main_window::create_controls()
     const bool controls_created =
         _engine_path_label && _engine_path_edit && _engine_path_browse_button &&
         _engine_path_apply_button && _speaker_label && _speaker_combo &&
-        _text_label && _text_edit && _volume_label && _volume_slider &&
+        _reconnect_button && _text_label && _text_edit && _volume_label && _volume_slider &&
         _volume_test_button && _play_button && _status_text;
 
     if (!controls_created)
@@ -606,7 +606,7 @@ void main_window::browse_voicevox_path()
         FILEOPENDIALOGOPTIONS options{};
         if (SUCCEEDED(dialog->GetOptions(&options)))
         {
-            dialog->SetOptions(options | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST);
+            dialog->SetOptions(options | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST | FOS_FORCEFILESYSTEM);
         }
 
         result = dialog->Show(_window);
