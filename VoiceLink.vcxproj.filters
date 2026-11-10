@@ -42,6 +42,9 @@
     <ClCompile Include="text_to_speech\voicevox_process.cpp">
       <Filter>Text to Speech</Filter>
     </ClCompile>
+    <ClCompile Include="speech_to_text\audio_recorder.cpp">
+      <Filter>Speech to Text</Filter>
+    </ClCompile>
     <ClCompile Include="speech_to_text\sapi_engine.cpp">
       <Filter>Speech to Text</Filter>
     </ClCompile>
@@ -73,6 +76,9 @@
     </ClInclude>
     <ClInclude Include="text_to_speech\voicevox_process.h">
       <Filter>Text to Speech</Filter>
+    </ClInclude>
+    <ClInclude Include="speech_to_text\audio_recorder.h">
+      <Filter>Speech to Text</Filter>
     </ClInclude>
     <ClInclude Include="speech_to_text\speech_recognition_engine.h">
       <Filter>Speech to Text</Filter>
