@@ -57,7 +57,11 @@ private:
         status_text_id,
         volume_label_id,
         volume_slider_id,
-        volume_test_button_id
+        volume_test_button_id,
+        engine_path_label_id,
+        engine_path_edit_id,
+        engine_path_browse_button_id,
+        engine_path_apply_button_id
     };
 
     static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param);
@@ -66,7 +70,8 @@ private:
     bool create_controls();
     void layout_controls(int width, int height);
     void apply_control_font(HWND control);
-    void update_volume_label(int volume);\n    void browse_voicevox_path();
+    void update_volume_label(int volume);
+    void browse_voicevox_path();
 
     HINSTANCE _instance = nullptr;
     HWND _window = nullptr;
