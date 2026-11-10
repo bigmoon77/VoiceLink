@@ -51,7 +51,9 @@ private:
 
     HINSTANCE _instance = nullptr;
     HWND _window = nullptr;
+    HWND _speaker_label = nullptr;
     HWND _speaker_combo = nullptr;
+    HWND _text_label = nullptr;
     HWND _text_edit = nullptr;
     HWND _play_button = nullptr;
     HWND _status_text = nullptr;
