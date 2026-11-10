@@ -78,7 +78,6 @@ VoiceLink/
 ├── main.cpp
 ├── app_settings.h / .cpp
 ├── main_window.h / .cpp
-├── app_settings.h / .cpp
 ├── text_to_speech/
 │   ├── tts_controller.h / .cpp
 │   ├── tts_engine.h
