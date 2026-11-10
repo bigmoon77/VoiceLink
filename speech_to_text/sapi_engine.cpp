@@ -169,7 +169,6 @@ bool sapi_engine::run(
     }
     _pending_alternates.clear();
     _adaptation_pending = false;
-    _next_result_id = 1;
     _running = true;
 
     const auto process_commands = [&]()
