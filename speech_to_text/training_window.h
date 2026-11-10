@@ -35,6 +35,7 @@ private:
     void refresh_records();
     void refresh_selected_record();
     std::wstring get_correction_text() const;
+    bool save_training_text(const std::wstring& text) const;
     void apply_font(HWND control);
 
     HWND _parent = nullptr;
