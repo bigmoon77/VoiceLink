@@ -134,6 +134,8 @@
     <ClCompile Include="text_to_speech\audio_player.cpp" />
     <ClCompile Include="text_to_speech\tts_controller.cpp" />
     <ClCompile Include="text_to_speech\voicevox_process.cpp" />
+    <ClCompile Include="speech_to_text\sapi_engine.cpp" />
+    <ClCompile Include="speech_to_text\stt_controller.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main_window.h" />
@@ -143,6 +145,9 @@
     <ClInclude Include="text_to_speech\tts_controller.h" />
     <ClInclude Include="text_to_speech\tts_engine.h" />
     <ClInclude Include="text_to_speech\voicevox_process.h" />
+    <ClInclude Include="speech_to_text\speech_recognition_engine.h" />
+    <ClInclude Include="speech_to_text\sapi_engine.h" />
+    <ClInclude Include="speech_to_text\stt_controller.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
