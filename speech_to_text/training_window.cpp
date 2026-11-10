@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -316,7 +317,7 @@ bool training_window::save_training_text(const std::wstring& text) const
         std::vector<char> utf8(static_cast<size_t>(byte_count));
         const int converted = WideCharToMultiByte(CP_UTF8, 0, line.data(), static_cast<int>(line.size()), utf8.data(), byte_count, nullptr, nullptr);
         DWORD written = 0;
-        success = converted == byte_count && WriteFile(file, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr) != FALSE && written == utf8.size();
+        success = converted == byte_count && WriteFile(file, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr) != FALSE && written == static_cast<DWORD>(utf8.size());
     }
     else
     {
