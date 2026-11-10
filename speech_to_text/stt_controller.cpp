@@ -59,14 +59,22 @@ void stt_controller::start_recognition()
     _worker = std::thread([this]()
     {
         std::wstring error;
-        const bool success = _engine->run(
-            _stop_requested,
-            [this](const std::wstring& text)
-            {
-                enqueue_message(message_type::recognized_text, text);
-            },
-            error
-        );
+        bool success = false;
+        try
+        {
+            success = _engine->run(
+                _stop_requested,
+                [this](const std::wstring& text)
+                {
+                    enqueue_message(message_type::recognized_text, text);
+                },
+                error
+            );
+        }
+        catch (...)
+        {
+            error = L\"音声認識中に予期しないエラーが発生しました。\";
+        }
 
         _running = false;
         if (!error.empty())
