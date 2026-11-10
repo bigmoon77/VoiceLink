@@ -87,7 +87,9 @@ VoiceLink/
 └── speech_to_text/
     ├── stt_controller.h / .cpp
     ├── speech_recognition_engine.h
-    └── sapi_engine.h / .cpp
+    ├── sapi_engine.h / .cpp
+    ├── audio_recorder.h / .cpp
+    └── training_window.h / .cpp
 ```
 
 TTS / Audio は現在アプリケーションプロジェクト内にあります。責務を分離したまま実装し、必要になった段階で静的ライブラリへ切り出します。
