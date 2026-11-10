@@ -159,6 +159,10 @@ bool voicevox_process::start(const std::wstring& configured_path, std::wstring& 
     }
 
     std::wstring command_line = L"\"" + executable_path + L"\"";
+    const size_t separator = executable_path.find_last_of(L"\\/");
+    const std::wstring working_directory = separator == std::wstring::npos
+        ? std::wstring()
+        : executable_path.substr(0, separator);
     STARTUPINFOW startup_info{};
     startup_info.cb = sizeof(startup_info);
 
@@ -170,7 +174,7 @@ bool voicevox_process::start(const std::wstring& configured_path, std::wstring& 
         FALSE,
         CREATE_SUSPENDED | CREATE_NO_WINDOW,
         nullptr,
-        nullptr,
+        working_directory.empty() ? nullptr : working_directory.c_str(),
         &startup_info,
         &_process_info
     ))
