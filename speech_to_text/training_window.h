@@ -26,7 +26,7 @@ public:
 
 private:
     static constexpr wchar_t _window_class_name[] = L"VoiceLinkTrainingWindow";
-    enum control_id { record_list_id = 2001, candidate_combo_id, correction_edit_id, commit_button_id, adaptation_button_id, close_button_id, status_text_id };
+    enum control_id { record_label_id = 2001, record_list_id, candidate_label_id, candidate_combo_id, correction_label_id, correction_edit_id, commit_button_id, adaptation_button_id, close_button_id, status_text_id };
     static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param);
     LRESULT handle_message(UINT message, WPARAM w_param, LPARAM l_param);
     bool create();
@@ -41,8 +41,11 @@ private:
 
     HWND _parent = nullptr;
     HWND _window = nullptr;
+    HWND _record_label = nullptr;
     HWND _record_list = nullptr;
+    HWND _candidate_label = nullptr;
     HWND _candidate_combo = nullptr;
+    HWND _correction_label = nullptr;
     HWND _correction_edit = nullptr;
     HWND _commit_button = nullptr;
     HWND _adaptation_button = nullptr;
