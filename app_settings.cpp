@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#pragma comment(lib, "windowsapp.lib")
+
 namespace
 {
     std::wstring get_app_data_path()
