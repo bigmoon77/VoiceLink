@@ -16,7 +16,7 @@ class main_window;
 class stt_controller
 {
 public:
-    explicit stt_controller(main_window& window);
+    stt_controller(main_window& window, std::unique_ptr<speech_recognition_engine> engine);
     ~stt_controller();
 
     stt_controller(const stt_controller&) = delete;
