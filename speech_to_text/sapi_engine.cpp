@@ -103,49 +103,42 @@ bool sapi_engine::run(
     result = recognizer->SetInput(nullptr, TRUE);
     if (!set_error(result, L"既定のマイク入力を設定できません", error))
     {
-        CoUninitialize();
         return false;
     }
 
     result = recognizer->CreateRecoContext(context.GetAddressOf());
     if (!set_error(result, L"音声認識コンテキストを作成できません", error))
     {
-        CoUninitialize();
         return false;
     }
 
     result = context->SetNotifyWin32Event();
     if (!set_error(result, L"音声認識イベントを初期化できません", error))
     {
-        CoUninitialize();
         return false;
     }
 
     result = context->SetInterest(SPFEI(SPEI_RECOGNITION), SPFEI(SPEI_RECOGNITION));
     if (!set_error(result, L"音声認識イベントを登録できません", error))
     {
-        CoUninitialize();
         return false;
     }
 
     result = context->CreateGrammar(1, grammar.GetAddressOf());
     if (!set_error(result, L"音声認識文法を作成できません", error))
     {
-        CoUninitialize();
         return false;
     }
 
     result = grammar->DictationLoad(nullptr, SPLO_STATIC);
     if (!set_error(result, L"ディクテーション文法を読み込めません。Windows に音声認識言語がインストールされているか確認してください", error))
     {
-        CoUninitialize();
         return false;
     }
 
     result = grammar->DictationSetState(SPRS_ACTIVE);
     if (!set_error(result, L"音声認識を開始できません", error))
     {
-        CoUninitialize();
         return false;
     }
 
