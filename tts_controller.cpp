@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <utility>
 
 tts_controller::tts_controller(main_window& window, audio_player& player)
@@ -45,6 +46,7 @@ void tts_controller::initialize_async()
 
     start_worker([this]()
     {
+        winrt::init_apartment(winrt::apartment_type::multi_threaded);
         auto* result = new speakers_result();
         std::vector<voicevox_engine::speaker_style> engine_speakers;
 
@@ -61,6 +63,8 @@ void tts_controller::initialize_async()
                 result->speakers.push_back({ std::move(display_name), speaker.speaker_id });
             }
         }
+
+        winrt::uninit_apartment();
 
         if (!PostMessageW(_window.get_handle(), speakers_ready_message, 0, reinterpret_cast<LPARAM>(result)))
         {
