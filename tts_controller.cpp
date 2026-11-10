@@ -85,16 +85,16 @@ void tts_controller::initialize_async()
                 apartment_initialized = true;
 
                 if (_engine->initialize(engine_speakers, result.error))
-            {
-                result.speakers.reserve(engine_speakers.size());
-
-                for (const auto& speaker : engine_speakers)
                 {
-                    std::wstring display_name = speaker.speaker_name;
-                    display_name += L" / ";
-                    display_name += speaker.style_name;
+                    result.speakers.reserve(engine_speakers.size());
 
-                    result.speakers.push_back({ std::move(display_name), speaker.speaker_id });
+                    for (const auto& speaker : engine_speakers)
+                    {
+                        std::wstring display_name = speaker.speaker_name;
+                        display_name += L" / ";
+                        display_name += speaker.style_name;
+
+                        result.speakers.push_back({ std::move(display_name), speaker.speaker_id });
                     }
                 }
             }
