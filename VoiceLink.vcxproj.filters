@@ -15,6 +15,9 @@
     <Filter Include="Speech to Text">
       <UniqueIdentifier>{B6E2F9C1-6D8A-4A3B-9C21-7F5D3A8B1E40}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Speech to Text">
+      <UniqueIdentifier>{B6E2F9C1-6D8A-4A3B-9C21-7F5D3A8B1E40}</UniqueIdentifier>
+    </Filter>
     <Filter Include="リソース ファイル">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
@@ -42,6 +45,12 @@
     <ClCompile Include="text_to_speech\voicevox_process.cpp">
       <Filter>Text to Speech</Filter>
     </ClCompile>
+    <ClCompile Include="speech_to_text\sapi_engine.cpp">
+      <Filter>Speech to Text</Filter>
+    </ClCompile>
+    <ClCompile Include="speech_to_text\stt_controller.cpp">
+      <Filter>Speech to Text</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main_window.h">
@@ -64,6 +73,15 @@
     </ClInclude>
     <ClInclude Include="text_to_speech\voicevox_process.h">
       <Filter>Text to Speech</Filter>
+    </ClInclude>
+    <ClInclude Include="speech_to_text\speech_recognition_engine.h">
+      <Filter>Speech to Text</Filter>
+    </ClInclude>
+    <ClInclude Include="speech_to_text\sapi_engine.h">
+      <Filter>Speech to Text</Filter>
+    </ClInclude>
+    <ClInclude Include="speech_to_text\stt_controller.h">
+      <Filter>Speech to Text</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
