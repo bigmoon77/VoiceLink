@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <filesystem>
 
 #pragma comment(lib, "winhttp.lib")
 
@@ -73,7 +74,7 @@ namespace
         std::wstring& result
     )
     {
-        if (is_file(candidate))
+        if (std::filesystem::is_regular_file(candidate))
         {
             result = candidate;
             return true;
