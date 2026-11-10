@@ -31,11 +31,15 @@ VoiceLink は Windows 上で動作する音声入出力アプリケーション�
 ```text
 VoiceLink (Application)
     |
-    +-- main_window (GUI)
+    +-- main_window (Win32 GUI)
     |      +-- speaker_combo_box
     |      +-- debug_text_box
     |      +-- play_button
     |      +-- status_text
+    |
+    +-- tts_controller
+    |      +-- GUI input / result mediation
+    |      +-- asynchronous worker
     |
     +-- VoiceLink.TTS
     |      +-- tts_engine (interface)
@@ -69,6 +73,10 @@ VoiceLink/
 ├── main.cpp                   # Windows GUI entry point
 ├── main_window.h               # Win32 main window interface
 ├── main_window.cpp             # Win32 main window implementation
+├── tts_controller.h/.cpp       # GUI / TTS / audio mediation
+├── tts_engine.h                # TTS engine interface
+├── voicevox_engine.h/.cpp      # VOICEVOX HTTP client
+├── audio_player.h/.cpp         # WAV playback
 ├── VoiceLink.TTS/             # 音声合成ライブラリ (static LIB)
 │   ├── tts_engine.h
 │   ├── voicevox_engine.h
@@ -110,15 +118,27 @@ Win32 API を利用して初期 GUI を管理するクラスです。
 - `status_text`: Engine 接続状態や処理結果の表示。
 
 **主な処理**
-- 起動時に TTS Engine から話者・スタイル一覧を取得し、Drop-down に設定する。
-- 選択中の話者 ID を保持する。
-- 再生ボタン押下時に TextBox の内容と話者 ID を取得する。
-- TTS へ合成を依頼し、成功した WAV データを Audio へ渡す。
-- 処理結果やエラーを状態表示へ反映する。
+- `CreateWindowExW` で ComboBox、複数行 Edit、Button、Static を生成する。
+- 話者一覧を ComboBox に設定する。
+- 選択中の話者 ID と入力テキストを取得する。
+- 再生要求と非同期処理結果をコールバック・ウィンドウメッセージで通知する。
+- 状態表示と再生ボタンの有効状態を更新する。
 
-GUI のイベントハンドラーに HTTP 通信や WAV 再生の詳細を直接実装しません。処理は各モジュールへ委譲します。
+HTTP 通信や WAV 再生の詳細は扱わず、`tts_controller` へ委譲します。
 
-Win32 標準コントロールを使用し、`CreateWindowExW` で ComboBox、複数行 Edit、Button、状態表示用 Static を生成します。`main_window` は話者一覧の投入、入力テキストと選択 ID の取得、再生要求コールバック、状態表示の更新を担当します。
+#### `tts_controller`
+
+GUI と TTS / Audio の間を仲介するクラスです。現在はアプリケーションプロジェクト内に配置しています。
+
+**責務**
+- 起動時に VOICEVOX Engine へ接続し、話者・スタイル一覧を取得する。
+- `main_window` から読み上げテキストと speaker ID を受け取る。
+- `tts_engine` に音声合成を依頼する。
+- 合成結果の WAV を `audio_player` へ渡す。
+- 接続状態、処理中、成功、失敗を GUI に反映する。
+- HTTP 通信・合成処理をワーカースレッドで実行し、完了を `PostMessageW` で UI スレッドへ通知する。
+
+同時に複数の合成要求を実行せず、処理中は再生ボタンを無効化します。UI コントロールの操作は UI スレッド上で行います。
 
 ### 3.2 VoiceLink.TTS
 
@@ -133,43 +153,48 @@ Win32 標準コントロールを使用し、`CreateWindowExW` で ComboBox、�
 
 音声合成エンジンの抽象インターフェースです。
 
-初期案:
+実装済みのインターフェースは以下の通りです。
 
 ```cpp
-#pragma once
-
-#include <cstdint>
-#include <string>
-#include <vector>
-
 class tts_engine
 {
 public:
+    struct speaker_style
+    {
+        std::wstring speaker_name;
+        std::wstring style_name;
+        int speaker_id = -1;
+    };
+
     virtual ~tts_engine() = default;
 
-    virtual bool initialize() = 0;
+    virtual bool initialize(
+        std::vector<speaker_style>& speakers,
+        std::wstring& error
+    ) = 0;
 
-    virtual std::vector<std::uint8_t> synthesize(
-        const std::string& text,
-        int speaker_id
+    virtual bool synthesize(
+        const std::wstring& text,
+        int speaker_id,
+        std::vector<std::uint8_t>& wav_data,
+        std::wstring& error
     ) = 0;
 };
 ```
 
-実装時には、初期化・合成失敗の詳細を呼び出し元へ伝える戻り値形式を検討します。
-また、話者一覧取得 API と共通の話者・スタイルデータ型を追加します。VOICEVOX 固有の JSON 構造をアプリケーション本体へ直接公開しない方針です。
+失敗時は `false` を返し、詳細を `error` に格納します。話者・スタイル一覧は共通の `speaker_style` 型で返し、VOICEVOX 固有の JSON 構造をアプリケーション本体へ公開しません。
 
 #### `voicevox_engine`
 
 `tts_engine` を実装し、VOICEVOX Engine の HTTP API を呼び出します。
 
 **主な責務**
-- Engine の接続先 URL を保持する。
-- Engine への接続確認を行う。
-- 話者・スタイル一覧を取得する。
-- 音声クエリを作成する。
-- 合成 API へ音声クエリを送信する。
-- 返却された WAV バイト列を呼び出し元へ返す。
+- localhost の VOICEVOX Engine (`127.0.0.1:50021`) へ WinHTTP で接続する。
+- `GET /speakers` で話者・スタイル一覧を取得し、Windows.Data.Json で解析する。
+- テキストを UTF-8 化・URL エンコードし、`POST /audio_query` を実行する。
+- AudioQuery JSON を `POST /synthesis` へ送信する。
+- 返却データが RIFF/WAVE 形式であることを確認し、WAV バイト列を返す。
+- HTTP ステータス、通信エラー、JSON 解析エラーを呼び出し元へ返す。
 
 **VOICEVOX API の処理順**
 
@@ -192,29 +217,15 @@ VOICEVOX Engine の起動・終了は初期実装の責務に含めません。
 
 #### `audio_player`
 
-初期案:
+現時点では WinMM の `PlaySoundW` を利用してメモリ上の WAV を再生します。
 
-```cpp
-#pragma once
+- `play`: RIFF/WAVE ヘッダーを確認して非同期再生する。
+- `stop`: 再生を停止する。
+- 非同期再生中にデータが解放されないよう、WAV バッファをメンバーで保持する。
 
-#include <cstdint>
-#include <vector>
+初期の動作確認を優先した実装です。将来、再生状態の取得や細かな制御が必要になった段階で XAudio2 等への置き換えを検討します。
 
-class audio_player
-{
-public:
-    virtual ~audio_player() = default;
-
-    virtual bool initialize() = 0;
-    virtual bool play(const std::vector<std::uint8_t>& wav_data) = 0;
-    virtual void stop() = 0;
-};
-```
-
-実際の再生 API は、WAV の読み込み方式、非同期再生、停止時の寿命管理を踏まえて決定します。
-再生バックエンドとして Windows の XAudio2 等を候補としますが、採用は実装時に確定します。
-
-Audio モジュールは TTS モジュールへ依存しません。WAV データなどの受け渡し可能な形式を介して接続します。
+Audio は TTS の HTTP 通信や JSON 解析へ依存しません。
 
 ## 4. 初期データフロー
 
@@ -223,7 +234,11 @@ Audio モジュールは TTS モジュールへ依存しません。WAV デー�
 ```text
 main_window
  |
- | initialize / get_speakers
+ | initialize_async
+ v
+tts_controller
+ |
+ | initialize
  v
 voicevox_engine
  |
@@ -236,6 +251,10 @@ VOICEVOX Engine
 voicevox_engine
  |
  | common speaker/style data
+ v
+tts_controller
+ |
+ | PostMessage result
  v
 main_window
  |
@@ -253,9 +272,13 @@ User
  v
 main_window
  |
+ | input text + speaker_id
+ v
+tts_controller
+ |
  | synthesize(text, speaker_id)
  v
-voicevox_engine
+tts_engine / voicevox_engine
  |
  | 1. POST /audio_query
  | 2. POST /synthesis
@@ -268,7 +291,7 @@ voicevox_engine
  |
  | WAV bytes
  v
-main_window
+tts_controller
  |
  | play(wav_data)
  v
@@ -282,8 +305,9 @@ Audio Output Device
 
 | 呼び出し元 | 依存先 | 方針 |
 |---|---|---|
-| VoiceLink / main_window | VoiceLink.TTS | 抽象インターフェース経由で利用する |
-| VoiceLink / main_window | VoiceLink.Audio | 音声データを渡して再生を依頼する |
+| VoiceLink / main_window | tts_controller | GUI の入力と非同期結果を仲介する |
+| tts_controller | tts_engine | 抽象インターフェース経由で合成を依頼する |
+| tts_controller | audio_player | WAV データを渡して再生を依頼する |
 | VoiceLink.TTS | HTTP クライアント / JSON ライブラリ | VOICEVOX 通信の内部実装として利用する |
 | VoiceLink.Audio | 再生バックエンド | Audio 内部に閉じ込める |
 | VoiceLink.Audio | VoiceLink.TTS | 依存させない |
@@ -334,10 +358,10 @@ Audio Output Device
 | 項目 | 現状 | 決定時の観点 |
 |---|---|---|
 | GUI フレームワーク | **決定: Win32 標準コントロール** | Windows API の ComboBox / Edit / Button / Static を使用。追加の GUI 依存なし |
-| C++ 言語標準 | 未確定 | 利用するコンパイラ・依存ライブラリとの互換性 |
-| HTTP クライアント | 未選定 | 導入コスト、同期/非同期、タイムアウト、ライセンス |
-| JSON ライブラリ | 未選定 | UTF-8 対応、保守性、ライセンス |
-| 音声再生 API | 未確定 | XAudio2 等の再生制御、WAV デコード、非同期処理 |
+| C++ 言語標準 | **決定: C++17** | C++/WinRT を利用するため |
+| HTTP クライアント | **決定: WinHTTP** | Windows 標準 API を利用 |
+| JSON パーサー | **決定: Windows.Data.Json (C++/WinRT)** | Windows SDK の JSON API を利用 |
+| 音声再生 API | **初期実装: WinMM PlaySoundW** | WAV メモリ再生。高度な制御が必要になれば XAudio2 等を検討 |
 | TTS の戻り値形式 | 初期案は WAV バイト列 | エラー詳細と結果データの表現 |
 | 話者・スタイル型 | 未確定 | 複数スタイル、表示名、ID の扱い |
 | 設定保存形式 | 未確定 | 接続先、話者 ID、音量などの保存 |
@@ -346,9 +370,13 @@ Audio Output Device
 ## 9. 現在の実装状況
 
 - Win32 のメインウィンドウと標準コントロールを実装済み。
-- 話者一覧を ComboBox に設定する API、選択中の speaker ID を取得する API、テキスト取得 API を用意。
-- 再生ボタンはコールバック経由でアプリケーションへ通知する。
-- VOICEVOX 接続、話者一覧取得、TTS 合成、音声再生のバックエンドは未実装。現段階の再生ボタンは未接続状態をステータス表示する。
+- `tts_engine` 抽象インターフェースと VOICEVOX 実装を追加済み。
+- WinHTTP で `/speakers`、`/audio_query`、`/synthesis` を呼び出す。
+- `tts_controller` が GUI 入力、非同期 TTS 処理、結果通知、音声再生を仲介する。
+- `audio_player` が WAV をメモリから非同期再生する。
+- 接続先は現在 `http://127.0.0.1:50021` 固定。Engine の起動・終了は手動。
+- 各ソースはアプリケーションプロジェクトに含めている。TTS / Audio の静的ライブラリ分離は後続作業とする。
+- Windows / MSVC でのビルド・実機接続テストは未確認。
 
 ## 10. 更新ルール
 
