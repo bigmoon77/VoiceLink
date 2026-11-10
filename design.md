@@ -75,6 +75,7 @@ VoiceLink/
 ├── AGENTS.md
 ├── design.md
 ├── main.cpp
+├── app_settings.h / .cpp
 ├── main_window.h / .cpp
 ├── tts_controller.h / .cpp
 ├── tts_engine.h
@@ -108,6 +109,9 @@ Win32 API を利用して初期 GUI を管理するクラスです。
 - `debug_text_box`: 読み上げテキスト入力。
 - `play_button`: 合成・再生の開始。
 - `status_text`: Engine 接続状態や処理結果の表示。
+- `engine_path_edit`: VOICEVOX Engine の `run.exe` パス入力。
+- `engine_path_browse_button`: `IFileOpenDialog` で実行ファイルを選択。
+- `engine_path_apply_button`: 入力パスを保存し、Engine へ再接続。
 
 **主な処理**
 - `CreateWindowExW` で ComboBox、複数行 Edit、Button、Static を生成する。
@@ -117,6 +121,10 @@ Win32 API を利用して初期 GUI を管理するクラスです。
 - 状態表示と再生ボタンの有効状態を更新する。
 
 HTTP 通信や WAV 再生の詳細は扱わず、`tts_controller` へ委譲します。
+
+#### `app_settings`
+
+`%APPDATA%\\VoiceLink\\config.json` を読み書きし、VOICEVOX Engine の実行ファイルパスを保持します。JSON は UTF-8 で保存し、設定キー `voicevox_path` に絶対パスを記録します。
 
 #### `tts_controller`
 
@@ -197,7 +205,7 @@ public:
 接続先の初期値は `http://127.0.0.1:50021` とします。
 ポート番号や URL は将来の設定変更に備えて固定値を各所へ散在させず、一か所で管理します。
 
-VOICEVOX Engine の起動・終了は voicevox_process が管理します。標準インストール先と新しいエンジン管理フォルダーから run.exe を検索し、未起動の場合だけ起動します。VoiceLink が起動したプロセスは Job Object で所有し、VoiceLink 終了時に停止します。既存の Engine には接続するだけで、終了処理の対象にしません。
+VOICEVOX Engine の起動・終了は voicevox_process が管理します。GUI で指定された `run.exe` パスを優先し、未指定の場合は標準インストール先と新しいエンジン管理フォルダーから自動検索します。未起動の場合だけ起動します。VoiceLink が起動したプロセスは Job Object で所有し、VoiceLink 終了時に停止します。既存の Engine には接続するだけで、終了処理の対象にしません。
 
 ### 3.3 VoiceLink.Audio
 
@@ -355,7 +363,7 @@ Audio Output Device
 | 音声再生 API | **初期実装: WinMM PlaySoundW** | WAV メモリ再生。高度な制御が必要になれば XAudio2 等を検討 |
 | TTS の戻り値形式 | `bool` + WAV バイト列 + エラー文字列 | `tts_engine` の共通インターフェースで統一 |
 | 話者・スタイル型 | `tts_engine::speaker_style` | 話者名、スタイル名、speaker ID を保持 |
-| 設定保存形式 | 未確定 | 接続先、話者 ID、音量などの保存 |
+| 設定保存形式 | **決定: JSON (`%APPDATA%\\VoiceLink\\config.json`)** | VOICEVOX Engine の実行ファイルパスを `voicevox_path` に保存。空文字列は自動検索 |
 | VOICEVOX Engine の管理 | **決定: voicevox_process で自動管理** | 標準パスと `%APPDATA%\\voicevox\\vvpp-engines` を検索。既存 Engine は再利用し、自分で起動したプロセスだけ終了時に停止 |
 
 ## 9. 現在の実装状況
@@ -366,6 +374,7 @@ Audio Output Device
 - `tts_controller` が GUI 入力、非同期 TTS 処理、結果通知、音声再生を仲介する。
 - `audio_player` が WAV をメモリから非同期再生する。
 - 接続先は現在 `http://127.0.0.1:50021` 固定。`voicevox_process` が Engine の検索・起動・終了管理を行う。
+- GUI から `run.exe` のパスを指定でき、`%APPDATA%\\VoiceLink\\config.json` に保存する。
 - 各ソースはアプリケーションプロジェクトに含めている。TTS / Audio の静的ライブラリ分離は後続作業とする。
 - Windows / MSVC でのビルド・実機接続テストは未確認。
 
