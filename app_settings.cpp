@@ -144,7 +144,7 @@ bool app_settings::save() const
         winrt::Windows::Data::Json::JsonObject object;
         object.Insert(
             L"voicevox_path",
-            winrt::Windows::Data::Json::JsonValue::CreateString(winrt::hstring(_voicevox_path))
+            winrt::Windows::Data::Json::JsonValue::CreateStringValue(winrt::hstring(_voicevox_path))
         );
 
         const std::string json = wide_to_utf8(
