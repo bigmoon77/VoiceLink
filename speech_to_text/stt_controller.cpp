@@ -1,13 +1,11 @@
 ﻿#include "stt_controller.h"
 
 #include "main_window.h"
-#include "sapi_engine.h"
-
 #include <utility>
 
-stt_controller::stt_controller(main_window& window)
+stt_controller::stt_controller(main_window& window, std::unique_ptr<speech_recognition_engine> engine)
     : _window(window)
-    , _engine(std::make_unique<sapi_engine>())
+    , _engine(std::move(engine))
 {
     _window.set_recognition_start_callback([this]()
     {
