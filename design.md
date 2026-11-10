@@ -49,6 +49,8 @@ VoiceLink (Application)
     +-- VoiceLink.Audio
     |      +-- audio_player
     |
+    +-- voicevox_process
+    |      +-- Engine path discovery / process ownership
     +-- [Future] VoiceLink.Speech
     |      +-- audio_capture
     |      +-- speech_recognizer
@@ -195,7 +197,7 @@ public:
 接続先の初期値は `http://127.0.0.1:50021` とします。
 ポート番号や URL は将来の設定変更に備えて固定値を各所へ散在させず、一か所で管理します。
 
-VOICEVOX Engine の起動・終了は初期実装の責務に含めません。
+VOICEVOX Engine の起動・終了は voicevox_process が管理します。標準インストール先と新しいエンジン管理フォルダーから run.exe を検索し、未起動の場合だけ起動します。VoiceLink が起動したプロセスは Job Object で所有し、VoiceLink 終了時に停止します。既存の Engine には接続するだけで、終了処理の対象にしません。
 
 ### 3.3 VoiceLink.Audio
 
@@ -354,7 +356,7 @@ Audio Output Device
 | TTS の戻り値形式 | `bool` + WAV バイト列 + エラー文字列 | `tts_engine` の共通インターフェースで統一 |
 | 話者・スタイル型 | `tts_engine::speaker_style` | 話者名、スタイル名、speaker ID を保持 |
 | 設定保存形式 | 未確定 | 接続先、話者 ID、音量などの保存 |
-| VOICEVOX Engine の管理 | 初期は手動起動 | 将来の起動検出・自動起動・終了管理 |
+| VOICEVOX Engine の管理 | **決定: voicevox_process で自動管理** | 標準パスと `%APPDATA%\\voicevox\\vvpp-engines` を検索。既存 Engine は再利用し、自分で起動したプロセスだけ終了時に停止 |
 
 ## 9. 現在の実装状況
 
@@ -363,7 +365,7 @@ Audio Output Device
 - WinHTTP で `/speakers`、`/audio_query`、`/synthesis` を呼び出す。
 - `tts_controller` が GUI 入力、非同期 TTS 処理、結果通知、音声再生を仲介する。
 - `audio_player` が WAV をメモリから非同期再生する。
-- 接続先は現在 `http://127.0.0.1:50021` 固定。Engine の起動・終了は手動。
+- 接続先は現在 `http://127.0.0.1:50021` 固定。`voicevox_process` が Engine の検索・起動・終了管理を行う。
 - 各ソースはアプリケーションプロジェクトに含めている。TTS / Audio の静的ライブラリ分離は後続作業とする。
 - Windows / MSVC でのビルド・実機接続テストは未確認。
 
