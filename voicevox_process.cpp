@@ -14,13 +14,6 @@ namespace
     constexpr DWORD startup_timeout_ms = 90000;
     constexpr DWORD startup_poll_interval_ms = 500;
 
-    bool is_file(const std::wstring& path)
-    {
-        const DWORD attributes = GetFileAttributesW(path.c_str());
-        return attributes != INVALID_FILE_ATTRIBUTES &&
-            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
-    }
-
     bool check_engine_api()
     {
         HINTERNET session = WinHttpOpen(
@@ -111,7 +104,7 @@ voicevox_process::~voicevox_process()
     }
 }
 
-bool voicevox_process::start(std::wstring& error)
+bool voicevox_process::start(const std::wstring& configured_path, std::wstring& error)
 {
     if (_job && _process_info.hProcess &&
         WaitForSingleObject(_process_info.hProcess, 0) == WAIT_TIMEOUT)
@@ -125,12 +118,21 @@ bool voicevox_process::start(std::wstring& error)
         return true;
     }
 
-    std::wstring executable_path;
-    if (!find_engine_path(executable_path))
+    std::wstring executable_path = configured_path;
+    if (!executable_path.empty())
+    {
+        if (!is_file(executable_path))
+        {
+            error = L"指定された VOICEVOX の実行ファイルが見つかりません: ";
+            error += executable_path;
+            return false;
+        }
+    }
+    else if (!find_engine_path(executable_path))
     {
         error =
             L"VOICEVOX Engine の run.exe が見つかりません。"
-            L" VOICEVOX のインストール状態を確認してください。";
+            L" パスを指定するか、VOICEVOX のインストール状態を確認してください。";
         return false;
     }
 
@@ -222,6 +224,13 @@ bool voicevox_process::start(std::wstring& error)
     CloseHandle(_process_info.hProcess);
     _process_info.hProcess = nullptr;
     return false;
+}
+
+bool voicevox_process::is_file(const std::wstring& path)
+{
+    const DWORD attributes = GetFileAttributesW(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES &&
+        (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
 bool voicevox_process::is_engine_ready()
