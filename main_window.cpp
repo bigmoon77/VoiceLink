@@ -10,6 +10,8 @@
 #include <vector>
 
 #pragma comment(lib, "comctl32.lib")
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "shell32.lib")
 
 constexpr wchar_t main_window::_window_class_name[];
 
@@ -582,7 +584,7 @@ void main_window::browse_voicevox_path()
             { L"Executable files", L"*.exe" },
             { L"All files", L"*.*" }
         };
-        dialog->SetFileTypes(static_cast<UINT>(std::size(filters)), filters);
+        dialog->SetFileTypes(3, filters);
         dialog->SetTitle(L"VOICEVOX Engine の run.exe を選択");
 
         FILEOPENDIALOGOPTIONS options{};
