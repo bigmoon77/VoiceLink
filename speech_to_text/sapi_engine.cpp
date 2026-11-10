@@ -4,6 +4,7 @@
 #include <sapi.h>
 #include <wrl/client.h>
 
+#include <cwchar>
 #include <string>
 
 #pragma comment(lib, "sapi.lib")
