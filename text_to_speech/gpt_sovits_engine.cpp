@@ -369,7 +369,8 @@ bool gpt_sovits_engine::request(
         {
             break;
         }
-        if (response_data.size() > maximum_response_size - available_size)
+        if (available_size > maximum_response_size ||
+            response_data.size() > maximum_response_size - available_size)
         {
             error = L"GPT-SoVITS API の応答サイズが上限を超えています。";
             WinHttpCloseHandle(request_handle);
