@@ -92,7 +92,7 @@ void training_window::set_adaptation_callback(std::function<void(const std::wstr
     _adaptation_callback = std::move(callback);
 }
 
-void training_window::set_batch_adaptation_callback(std::function<void(const std::vector<std::wstring>&, std::size_t)> callback)
+void training_window::set_batch_adaptation_callback(std::function<bool(const std::vector<std::wstring>&, std::size_t)> callback)
 {
     _batch_adaptation_callback = std::move(callback);
 }
@@ -591,8 +591,10 @@ void training_window::submit_all_samples_for_adaptation()
         texts.push_back(sample.text);
     }
 
-    _batch_adaptation_callback(texts, static_cast<std::size_t>(repetitions));
-    set_status(L"全サンプルの一括適応を要求しました。SAPI の完了通知を待っています。");
+    if (_batch_adaptation_callback(texts, static_cast<std::size_t>(repetitions)))
+    {
+        set_status(L"全サンプルの一括適応を開始しました。SAPI の完了通知を待っています。");
+    }
 }
 
 void training_window::update_selected_sample_text()
