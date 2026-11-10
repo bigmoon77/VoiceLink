@@ -32,6 +32,8 @@ public:
     std::wstring get_text() const;
     bool get_selected_speaker_id(int& speaker_id) const;
     void set_play_callback(std::function<void()> callback);
+    void set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback);
+    HWND get_handle() const;
 
 private:
     static constexpr wchar_t _window_class_name[] = L"VoiceLinkMainWindow";
@@ -62,4 +64,5 @@ private:
     HWND _play_button = nullptr;
     HWND _status_text = nullptr;
     std::function<void()> _play_callback;
+    std::function<bool(UINT, WPARAM, LPARAM)> _message_callback;
 };
