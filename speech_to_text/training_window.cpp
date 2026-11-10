@@ -206,10 +206,10 @@ bool training_window::create_controls()
 void training_window::layout_controls(int width, int height)
 {
     if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label || !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text) return;
-    const int content_width = std::max(width - margin * 2, 120);
+    const int content_width = (std::max)(width - margin * 2, 120);
     const int list_label_y = margin;
     const int list_y = list_label_y + label_height;
-    const int list_height = std::max(height / 2 - label_height, 80);
+    const int list_height = (std::max)(height / 2 - label_height, 80);
     const int candidate_y = list_y + list_height + margin;
     const int correction_y = candidate_y + label_height + control_height + margin;
     const int buttons_y = correction_y + label_height + control_height + margin;
@@ -301,7 +301,7 @@ std::wstring training_window::get_correction_text() const
     const int length = GetWindowTextLengthW(_correction_edit);
     std::vector<wchar_t> buffer(static_cast<size_t>(length) + 1, L'\0');
     const int copied = GetWindowTextW(_correction_edit, buffer.data(), length + 1);
-    return std::wstring(buffer.data(), static_cast<size_t>(std::max(copied, 0)));
+    return std::wstring(buffer.data(), static_cast<size_t>((std::max)(copied, 0)));
 }
 
 bool training_window::save_training_text(const std::wstring& text) const
