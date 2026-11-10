@@ -4,6 +4,8 @@
 #include <winrt/base.h>
 
 #include <algorithm>
+#include <stdexcept>
+#include <utility>
 #include <string>
 #include <vector>
 
