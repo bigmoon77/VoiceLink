@@ -1,14 +1,15 @@
 #include "tts_controller.h"
+#include "voicevox_engine.h"
 
 #include <winrt/base.h>
 
-#include <algorithm>
 #include <functional>
 #include <utility>
 
 tts_controller::tts_controller(main_window& window, audio_player& player)
     : _window(window)
     , _player(player)
+    , _engine(std::make_unique<voicevox_engine>())
 {
     _window.set_play_callback([this]()
     {
@@ -49,9 +50,9 @@ void tts_controller::initialize_async()
     {
         winrt::init_apartment(winrt::apartment_type::multi_threaded);
         speakers_result result;
-        std::vector<voicevox_engine::speaker_style> engine_speakers;
+        std::vector<tts_engine::speaker_style> engine_speakers;
 
-        if (_engine.initialize(engine_speakers, result.error))
+        if (_engine->initialize(engine_speakers, result.error))
         {
             result.speakers.reserve(engine_speakers.size());
 
@@ -110,7 +111,7 @@ void tts_controller::on_play()
     {
         synthesis_result result;
 
-        _engine.synthesize(text, speaker_id, result.wav_data, result.error);
+        _engine->synthesize(text, speaker_id, result.wav_data, result.error);
 
         {
             std::lock_guard<std::mutex> lock(_result_mutex);
