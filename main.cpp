@@ -2,8 +2,12 @@
 #include "main_window.h"
 #include "tts_controller.h"
 
+#include <winrt/base.h>
+
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
 {
+    winrt::init_apartment(winrt::apartment_type::single_threaded);
+
     app_settings settings;
     settings.load();
 
@@ -17,6 +21,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
             L"VoiceLink",
             MB_OK | MB_ICONERROR
         );
+        winrt::uninit_apartment();
         return 1;
     }
 
@@ -47,5 +52,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
         DispatchMessageW(&message);
     }
 
+    winrt::uninit_apartment();
     return static_cast<int>(message.wParam);
 }
