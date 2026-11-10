@@ -265,7 +265,7 @@ void training_window::layout_controls(int width, int height)
 {
     if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label ||
         !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text ||
-        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button)
+        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button || !_sample_update_button)
     {
         return;
     }
