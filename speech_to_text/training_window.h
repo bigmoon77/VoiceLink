@@ -25,7 +25,7 @@ public:
     void set_status(const std::wstring& status);
     void set_alternate_callback(std::function<void(std::uint64_t, std::size_t)> callback);
     void set_adaptation_callback(std::function<void(const std::wstring&)> callback);
-    void set_batch_adaptation_callback(std::function<void(const std::vector<std::wstring>&, std::size_t)> callback);
+    void set_batch_adaptation_callback(std::function<bool(const std::vector<std::wstring>&, std::size_t)> callback);
 
 private:
     struct training_sample
@@ -115,5 +115,5 @@ private:
     audio_player _audio_player;
     std::function<void(std::uint64_t, std::size_t)> _alternate_callback;
     std::function<void(const std::wstring&)> _adaptation_callback;
-    std::function<void(const std::vector<std::wstring>&, std::size_t)> _batch_adaptation_callback;
+    std::function<bool(const std::vector<std::wstring>&, std::size_t)> _batch_adaptation_callback;
 };
