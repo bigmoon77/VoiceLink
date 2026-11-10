@@ -16,7 +16,7 @@ constexpr wchar_t training_window::_window_class_name[];
 namespace
 {
     constexpr int window_width = 760;
-    constexpr int window_height = 760;
+    constexpr int window_height = 820;
     constexpr int margin = 12;
     constexpr int control_height = 26;
     constexpr int label_height = 20;
@@ -90,6 +90,11 @@ void training_window::set_alternate_callback(std::function<void(std::uint64_t, s
 void training_window::set_adaptation_callback(std::function<void(const std::wstring&)> callback)
 {
     _adaptation_callback = std::move(callback);
+}
+
+void training_window::set_batch_adaptation_callback(std::function<void(const std::vector<std::wstring>&, std::size_t)> callback)
+{
+    _batch_adaptation_callback = std::move(callback);
 }
 
 bool training_window::create()
@@ -198,6 +203,9 @@ LRESULT training_window::handle_message(UINT message, WPARAM w_param, LPARAM l_p
         case sample_update_button_id:
             if (HIWORD(w_param) == BN_CLICKED) update_selected_sample_text();
             return 0;
+        case batch_adaptation_button_id:
+            if (HIWORD(w_param) == BN_CLICKED) submit_all_samples_for_adaptation();
+            return 0;
         case close_button_id:
             if (HIWORD(w_param) == BN_CLICKED) ShowWindow(_window, SW_HIDE);
             return 0;
@@ -229,10 +237,13 @@ bool training_window::create_controls()
     _sample_play_button = CreateWindowExW(0, L"BUTTON", L"選択音声を再生", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_play_button_id)), instance, nullptr);
     _sample_save_button = CreateWindowExW(0, L"BUTTON", L"録音を保存", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_save_button_id)), instance, nullptr);
     _sample_update_button = CreateWindowExW(0, L"BUTTON", L"テキスト更新", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_update_button_id)), instance, nullptr);
+    _batch_count_label = CreateWindowExW(0, L"STATIC", L"全サンプルの適応回数", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(batch_count_label_id)), instance, nullptr);
+    _batch_count_edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"1", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_NUMBER | ES_AUTOHSCROLL, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(batch_count_edit_id)), instance, nullptr);
+    _batch_adaptation_button = CreateWindowExW(0, L"BUTTON", L"全サンプルを一括適応", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(batch_adaptation_button_id)), instance, nullptr);
 
     if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label ||
         !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text ||
-        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button || !_sample_update_button)
+        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button || !_sample_update_button || !_batch_count_label || !_batch_count_edit || !_batch_adaptation_button)
     {
         return false;
     }
@@ -253,6 +264,9 @@ bool training_window::create_controls()
     apply_font(_sample_play_button);
     apply_font(_sample_save_button);
     apply_font(_sample_update_button);
+    apply_font(_batch_count_label);
+    apply_font(_batch_count_edit);
+    apply_font(_batch_adaptation_button);
 
     load_training_history();
     refresh_records();
@@ -280,7 +294,7 @@ void training_window::layout_controls(int width, int height)
     const int status_y = buttons_y + control_height + margin;
     const int sample_label_y = status_y + label_height + margin;
     const int sample_list_y = sample_label_y + label_height;
-    const int sample_list_height = (std::max)(height - sample_list_y - 3 * control_height - 5 * margin - label_height, 80);
+    const int sample_list_height = (std::max)(height - sample_list_y - 4 * control_height - 6 * margin - label_height, 80);
     const int sample_buttons_y = sample_list_y + sample_list_height + margin;
     const int button_width = 125;
 
@@ -300,6 +314,10 @@ void training_window::layout_controls(int width, int height)
     MoveWindow(_sample_play_button, margin + button_width + margin, sample_buttons_y, button_width + 15, control_height, TRUE);
     MoveWindow(_sample_save_button, margin + (button_width + margin) * 2 + 15, sample_buttons_y, button_width, control_height, TRUE);
     MoveWindow(_sample_update_button, margin + (button_width + margin) * 3 + 15, sample_buttons_y, button_width, control_height, TRUE);
+    const int batch_y = sample_buttons_y + control_height + margin;
+    MoveWindow(_batch_count_label, margin, batch_y, 150, control_height, TRUE);
+    MoveWindow(_batch_count_edit, margin + 155, batch_y, 70, control_height, TRUE);
+    MoveWindow(_batch_adaptation_button, margin + 235, batch_y, 220, control_height, TRUE);
 }
 
 void training_window::refresh_records()
@@ -525,6 +543,56 @@ void training_window::save_recorded_sample()
     _selected_audio = _recorded_audio;
     _recorded_audio.clear();
     set_status(L"音声と正解テキストを保存しました。");
+}
+
+void training_window::submit_all_samples_for_adaptation()
+{
+    if (!_batch_adaptation_callback)
+    {
+        set_status(L"一括適応機能を利用できません。");
+        return;
+    }
+    if (_samples.empty())
+    {
+        set_status(L"学習サンプルがありません。WAV と TXT のペアを保存してください。");
+        return;
+    }
+
+    BOOL translated = FALSE;
+    const UINT repetitions = GetDlgItemInt(_window, batch_count_edit_id, &translated, FALSE);
+    if (!translated || repetitions == 0 || repetitions > 1000)
+    {
+        set_status(L"適応回数は1～1000の整数で指定してください。");
+        return;
+    }
+    if (_samples.size() > 100000 / repetitions)
+    {
+        set_status(L"処理件数が上限の100,000件を超えています。回数を減らしてください。");
+        return;
+    }
+
+    std::vector<std::wstring> texts;
+    texts.reserve(_samples.size());
+    for (const training_sample& sample : _samples)
+    {
+        std::vector<std::uint8_t> wav_data;
+        if (!read_file(sample.wav_path, wav_data) || wav_data.size() < 44 ||
+            wav_data[0] != 'R' || wav_data[1] != 'I' || wav_data[2] != 'F' || wav_data[3] != 'F' ||
+            wav_data[8] != 'W' || wav_data[9] != 'A' || wav_data[10] != 'V' || wav_data[11] != 'E')
+        {
+            set_status(L"WAV ファイルを読み込めない、または WAV 形式ではないサンプルがあります。");
+            return;
+        }
+        if (sample.text.empty() || sample.text.size() > 512)
+        {
+            set_status(L"TXT が空、または512文字を超えるサンプルがあります。対象テキストを修正してください。");
+            return;
+        }
+        texts.push_back(sample.text);
+    }
+
+    _batch_adaptation_callback(texts, static_cast<std::size_t>(repetitions));
+    set_status(L"全サンプルの一括適応を要求しました。SAPI の完了通知を待っています。");
 }
 
 void training_window::update_selected_sample_text()
