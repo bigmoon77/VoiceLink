@@ -184,7 +184,10 @@ bool training_window::create_controls()
 
     apply_font(_record_label);
     apply_font(_record_list);
-    apply_font(_candidate_label);\n    apply_font(_candidate_combo);\n    apply_font(_correction_label);\n    apply_font(_correction_edit);
+    apply_font(_candidate_label);
+    apply_font(_candidate_combo);
+    apply_font(_correction_label);
+    apply_font(_correction_edit);
     apply_font(_commit_button);
     apply_font(_adaptation_button);
     apply_font(_close_button);
@@ -200,12 +203,18 @@ void training_window::layout_controls(int width, int height)
     const int content_width = std::max(width - margin * 2, 120);
     const int list_label_y = margin;
     const int list_y = list_label_y + label_height;
-    const int list_height = std::max(height / 2 - label_height, 80);\n    const int candidate_y = list_y + list_height + margin;\n    const int correction_y = candidate_y + label_height + control_height + margin;\n    const int buttons_y = correction_y + label_height + control_height + margin;
+    const int list_height = std::max(height / 2 - label_height, 80);
+    const int candidate_y = list_y + list_height + margin;
+    const int correction_y = candidate_y + label_height + control_height + margin;
+    const int buttons_y = correction_y + label_height + control_height + margin;
     const int status_y = buttons_y + control_height + margin;
     const int button_width = 120;
     MoveWindow(_record_label, margin, list_label_y, content_width, label_height, TRUE);
     MoveWindow(_record_list, margin, list_y, content_width, list_height, TRUE);
-    MoveWindow(_candidate_label, margin, candidate_y, content_width, label_height, TRUE);\n    MoveWindow(_candidate_combo, margin, candidate_y + label_height, content_width, control_height, TRUE);\n    MoveWindow(_correction_label, margin, correction_y, content_width, label_height, TRUE);\n    MoveWindow(_correction_edit, margin, correction_y + label_height, content_width, control_height, TRUE);
+    MoveWindow(_candidate_label, margin, candidate_y, content_width, label_height, TRUE);
+    MoveWindow(_candidate_combo, margin, candidate_y + label_height, content_width, control_height, TRUE);
+    MoveWindow(_correction_label, margin, correction_y, content_width, label_height, TRUE);
+    MoveWindow(_correction_edit, margin, correction_y + label_height, content_width, control_height, TRUE);
     MoveWindow(_commit_button, margin, buttons_y, button_width, control_height, TRUE);
     MoveWindow(_adaptation_button, margin + button_width + margin, buttons_y, button_width + 30, control_height, TRUE);
     MoveWindow(_close_button, width - margin - button_width, buttons_y, button_width, control_height, TRUE);
