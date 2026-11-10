@@ -150,7 +150,7 @@ bool sapi_engine::run(
         success = false;
     }
 
-    while (success && (!stop_requested.load())
+    while (success && !stop_requested.load())
     {
         const DWORD wait_result = WaitForSingleObject(event_handle, 100);
         if (wait_result == WAIT_TIMEOUT)
