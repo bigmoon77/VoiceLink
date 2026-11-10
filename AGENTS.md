@@ -52,9 +52,10 @@ VOICEVOX Engine は外部プロセスとして動作します。VoiceLink 起動
 ### 2.3 中期目標: 音声入力
 
 - グローバルホットキーによる録音開始・終了。
-- WASAPI 等を利用した音声取得。
-- 音声認識エンジンとの接続。
-- 認識結果のテキスト化と編集・確定。
+- 音声認識エンジンを抽象インターフェース経由で利用する。
+- 初期実装は SAPI を利用し、既定のマイク入力から認識する。
+- 認識結果をテキスト化し、GUI へ表示する。
+- 別エンジンへ差し替えられる構造を維持する。
 
 ### 2.4 最終目標: ChatGPT Web 連携
 
@@ -72,7 +73,7 @@ VOICEVOX Engine は外部プロセスとして動作します。VoiceLink 起動
 | `VoiceLink.TTS` | `tts_engine` インターフェースと各エンジンの実装。初期実装は VOICEVOX Engine (WinHTTP) |
 | `VoiceLink.Audio` | WAV 等の音声データの再生・停止。初期実装は WinMM `PlaySoundW` |
 | `VoiceLink.Common` | 複数モジュールで共有する型、エラー表現、共通ユーティリティ。必要になった時点で追加する |
-| `VoiceLink.Speech` | 将来の音声入力・音声認識。録音と認識エンジンの責務を整理して実装する |
+| `VoiceLink.Speech` | 音声認識。`speech_recognition_engine` を抽象 API とし、初期実装は Windows SAPI。認識処理は専用スレッドで実行する |
 | `VoiceLink.Browser` | 将来のブラウザー連携。Native Messaging Host 側の処理を担当する |
 | Chrome Extension | ChatGPT タブ・入力欄の検出と、Native Messaging Host から受け取ったテキストの反映 |
 
