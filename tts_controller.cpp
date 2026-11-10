@@ -47,25 +47,43 @@ void tts_controller::initialize_async()
 
     start_worker([this]()
     {
-        winrt::init_apartment(winrt::apartment_type::multi_threaded);
         speakers_result result;
         std::vector<tts_engine::speaker_style> engine_speakers;
+        bool apartment_initialized = false;
 
-        if (_engine->initialize(engine_speakers, result.error))
+        try
         {
-            result.speakers.reserve(engine_speakers.size());
+            winrt::init_apartment(winrt::apartment_type::multi_threaded);
+            apartment_initialized = true;
 
-            for (const auto& speaker : engine_speakers)
+            if (_engine->initialize(engine_speakers, result.error))
             {
-                std::wstring display_name = speaker.speaker_name;
-                display_name += L" / ";
-                display_name += speaker.style_name;
+                result.speakers.reserve(engine_speakers.size());
 
-                result.speakers.push_back({ std::move(display_name), speaker.speaker_id });
+                for (const auto& speaker : engine_speakers)
+                {
+                    std::wstring display_name = speaker.speaker_name;
+                    display_name += L" / ";
+                    display_name += speaker.style_name;
+
+                    result.speakers.push_back({ std::move(display_name), speaker.speaker_id });
+                }
             }
         }
+        catch (const winrt::hresult_error& exception)
+        {
+            result.error = L"VOICEVOX 初期化に失敗しました: ";
+            result.error += exception.message().c_str();
+        }
+        catch (...)
+        {
+            result.error = L"VOICEVOX 初期化中に予期しないエラーが発生しました。";
+        }
 
-        winrt::uninit_apartment();
+        if (apartment_initialized)
+        {
+            winrt::uninit_apartment();
+        }
 
         {
             std::lock_guard<std::mutex> lock(_result_mutex);
