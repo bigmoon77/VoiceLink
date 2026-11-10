@@ -82,6 +82,7 @@ VoiceLink/
 │   ├── tts_controller.h / .cpp
 │   ├── tts_engine.h
 │   ├── voicevox_engine.h / .cpp
+│   ├── gpt_sovits_engine.h / .cpp
 │   ├── voicevox_process.h / .cpp
 │   └── audio_player.h / .cpp
 └── speech_to_text/
@@ -215,6 +216,18 @@ public:
 ポート番号や URL は将来の設定変更に備えて固定値を各所へ散在させず、一か所で管理します。
 
 VOICEVOX Engine の起動・終了は voicevox_process が管理します。GUI で指定された `run.exe` パスを優先し、未指定の場合は標準インストール先と新しいエンジン管理フォルダーから自動検索します。未起動の場合だけ起動します。VoiceLink が起動したプロセスは Job Object で所有し、VoiceLink 終了時に停止します。既存の Engine には接続するだけで、終了処理の対象にしません。
+
+#### `gpt_sovits_engine`
+
+`tts_engine` を実装し、GPT-SoVITS の `api_v2.py` が公開する HTTP API を呼び出します。
+
+- 初期接続先は `http://127.0.0.1:9880`。
+- `GET /openapi.json` で API の起動状態を確認します。
+- `POST /tts` に JSON を送信し、WAV データを取得します。
+- リクエストには合成テキスト、言語、参照音声ファイルパス、参照音声のテキストを指定します。
+- GPT-SoVITS は VOICEVOX のような話者一覧を提供しないため、共通インターフェースには参照音声を表す単一の仮想スタイルを返します。
+- 参照音声・参照テキスト・言語は `gpt_sovits_engine::settings` で受け取ります。GUI と設定保存への接続は後続実装で行います。
+- API プロセスの起動・終了は VoiceLink から管理せず、外部で起動済みの API に接続します。
 
 ### 3.3 VoiceLink.Audio
 
@@ -404,7 +417,8 @@ SAPI を選択している場合、メインウィンドウの `Training...` か
 
 - Win32 のメインウィンドウと標準コントロールを実装済み。
 - `tts_engine` 抽象インターフェースと VOICEVOX 実装を追加済み。
-- WinHTTP で `/speakers`、`/audio_query`、`/synthesis` を呼び出す。
+- VOICEVOX は WinHTTP で `/speakers`、`/audio_query`、`/synthesis` を呼び出す。
+- GPT-SoVITS 用の `gpt_sovits_engine` を追加し、`/openapi.json` による接続確認と `POST /tts` による WAV 取得を実装。
 - `tts_controller` が GUI 入力、非同期 TTS 処理、結果通知、音声再生を仲介する。
 - `audio_player` が WAV をメモリから非同期再生する。
 - 接続先は現在 `http://127.0.0.1:50021` 固定。`voicevox_process` が Engine の検索・起動・終了管理を行う。
