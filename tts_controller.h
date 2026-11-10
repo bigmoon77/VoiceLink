@@ -2,11 +2,12 @@
 
 #include "audio_player.h"
 #include "main_window.h"
-#include "voicevox_engine.h"
+#include "tts_engine.h"
 
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -44,7 +45,7 @@ private:
 
     main_window& _window;
     audio_player& _player;
-    voicevox_engine _engine;
+    std::unique_ptr<tts_engine> _engine;
     std::thread _worker;
     std::atomic<bool> _busy{ false };
     std::mutex _result_mutex;
