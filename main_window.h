@@ -31,12 +31,15 @@ public:
     void set_play_enabled(bool enabled);
     void set_reconnect_enabled(bool enabled);
     void set_volume(int volume);
+    void set_voicevox_path(const std::wstring& path);
+    std::wstring get_voicevox_path() const;
     std::wstring get_text() const;
     bool get_selected_speaker_id(int& speaker_id) const;
     void set_play_callback(std::function<void()> callback);
     void set_reconnect_callback(std::function<void()> callback);
     void set_volume_callback(std::function<void(int)> callback);
     void set_volume_test_callback(std::function<void()> callback);
+    void set_voicevox_path_callback(std::function<void(const std::wstring&)> callback);
     void set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback);
     HWND get_handle() const;
 
@@ -63,11 +66,11 @@ private:
     bool create_controls();
     void layout_controls(int width, int height);
     void apply_control_font(HWND control);
-    void update_volume_label(int volume);
+    void update_volume_label(int volume);\n    void browse_voicevox_path();
 
     HINSTANCE _instance = nullptr;
     HWND _window = nullptr;
-    HWND _speaker_label = nullptr;
+    HWND _engine_path_label = nullptr;\n    HWND _engine_path_edit = nullptr;\n    HWND _engine_path_browse_button = nullptr;\n    HWND _engine_path_apply_button = nullptr;\n    HWND _speaker_label = nullptr;
     HWND _speaker_combo = nullptr;
     HWND _reconnect_button = nullptr;
     HWND _text_label = nullptr;
@@ -80,6 +83,6 @@ private:
     std::function<void()> _play_callback;
     std::function<void()> _reconnect_callback;
     std::function<void(int)> _volume_callback;
-    std::function<void()> _volume_test_callback;
+    std::function<void()> _volume_test_callback;\n    std::function<void(const std::wstring&)> _voicevox_path_callback;
     std::function<bool(UINT, WPARAM, LPARAM)> _message_callback;
 };
