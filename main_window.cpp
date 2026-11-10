@@ -158,6 +158,22 @@ std::wstring main_window::get_voicevox_path() const
     return std::wstring(buffer.data(), static_cast<size_t>(std::max(copied, 0)));
 }
 
+void main_window::set_voicevox_path_enabled(bool enabled)
+{
+    if (_engine_path_edit)
+    {
+        EnableWindow(_engine_path_edit, enabled);
+    }
+    if (_engine_path_browse_button)
+    {
+        EnableWindow(_engine_path_browse_button, enabled);
+    }
+    if (_engine_path_apply_button)
+    {
+        EnableWindow(_engine_path_apply_button, enabled);
+    }
+}
+
 void main_window::set_volume(int volume)
 {
     volume = std::clamp(volume, 0, 100);
