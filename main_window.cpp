@@ -1,6 +1,8 @@
 #include "main_window.h"
 
 #include <algorithm>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -205,6 +207,18 @@ LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param
 
 bool main_window::create_controls()
 {
+    _speaker_label = CreateWindowExW(
+        0,
+        L"STATIC",
+        L"Speaker / Style",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0,
+        _window,
+        reinterpret_cast<HMENU>(speaker_label_id),
+        _instance,
+        nullptr
+    );
+
     _speaker_combo = CreateWindowExW(
         0,
         L"COMBOBOX",
@@ -213,6 +227,18 @@ bool main_window::create_controls()
         0, 0, 0, 0,
         _window,
         reinterpret_cast<HMENU>(speaker_combo_id),
+        _instance,
+        nullptr
+    );
+
+    _text_label = CreateWindowExW(
+        0,
+        L"STATIC",
+        L"Debug Text",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0,
+        _window,
+        reinterpret_cast<HMENU>(text_label_id),
         _instance,
         nullptr
     );
@@ -255,14 +281,17 @@ bool main_window::create_controls()
     );
 
     const bool controls_created =
-        _speaker_combo && _text_edit && _play_button && _status_text;
+        _speaker_label && _speaker_combo && _text_label &&
+        _text_edit && _play_button && _status_text;
 
     if (!controls_created)
     {
         return false;
     }
 
+    apply_control_font(_speaker_label);
     apply_control_font(_speaker_combo);
+    apply_control_font(_text_label);
     apply_control_font(_text_edit);
     apply_control_font(_play_button);
     apply_control_font(_status_text);
@@ -272,7 +301,8 @@ bool main_window::create_controls()
 
 void main_window::layout_controls(int width, int height)
 {
-    if (!_speaker_combo || !_text_edit || !_play_button || !_status_text)
+    if (!_speaker_label || !_speaker_combo || !_text_label ||
+        !_text_edit || !_play_button || !_status_text)
     {
         return;
     }
@@ -302,16 +332,8 @@ void main_window::layout_controls(int width, int height)
     );
     MoveWindow(_status_text, margin, status_y, content_width - play_button_width - margin, label_height, TRUE);
 
-    HWND speaker_label = GetDlgItem(_window, speaker_label_id);
-    HWND text_label = GetDlgItem(_window, text_label_id);
-    if (speaker_label)
-    {
-        MoveWindow(speaker_label, margin, margin, content_width, label_height, TRUE);
-    }
-    if (text_label)
-    {
-        MoveWindow(text_label, margin, edit_y - label_height, content_width, label_height, TRUE);
-    }
+    MoveWindow(_speaker_label, margin, margin, content_width, label_height, TRUE);
+    MoveWindow(_text_label, margin, edit_y - label_height, content_width, label_height, TRUE);
 }
 
 void main_window::apply_control_font(HWND control)
