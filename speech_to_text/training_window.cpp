@@ -7,9 +7,11 @@
 #include <limits>
 #include <string>
 #include <utility>
+#include <shellapi.h>
 #include <vector>
 
 #pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "shell32.lib")
 
 constexpr wchar_t training_window::_window_class_name[];
 
@@ -203,6 +205,9 @@ LRESULT training_window::handle_message(UINT message, WPARAM w_param, LPARAM l_p
         case sample_update_button_id:
             if (HIWORD(w_param) == BN_CLICKED) update_selected_sample_text();
             return 0;
+        case open_directory_button_id:
+            if (HIWORD(w_param) == BN_CLICKED) open_sample_directory();
+            return 0;
         case batch_adaptation_button_id:
             if (HIWORD(w_param) == BN_CLICKED) submit_all_samples_for_adaptation();
             return 0;
@@ -237,13 +242,14 @@ bool training_window::create_controls()
     _sample_play_button = CreateWindowExW(0, L"BUTTON", L"選択音声を再生", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_play_button_id)), instance, nullptr);
     _sample_save_button = CreateWindowExW(0, L"BUTTON", L"録音を保存", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_save_button_id)), instance, nullptr);
     _sample_update_button = CreateWindowExW(0, L"BUTTON", L"テキスト更新", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_update_button_id)), instance, nullptr);
+    _open_directory_button = CreateWindowExW(0, L"BUTTON", L"保存先を開く", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(open_directory_button_id)), instance, nullptr);
     _batch_count_label = CreateWindowExW(0, L"STATIC", L"全サンプルの適応回数", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(batch_count_label_id)), instance, nullptr);
     _batch_count_edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"1", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_NUMBER | ES_AUTOHSCROLL, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(batch_count_edit_id)), instance, nullptr);
     _batch_adaptation_button = CreateWindowExW(0, L"BUTTON", L"全サンプルを一括適応", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(batch_adaptation_button_id)), instance, nullptr);
 
     if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label ||
         !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text ||
-        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button || !_sample_update_button || !_batch_count_label || !_batch_count_edit || !_batch_adaptation_button)
+        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button || !_sample_update_button || !_open_directory_button || !_batch_count_label || !_batch_count_edit || !_batch_adaptation_button)
     {
         return false;
     }
@@ -264,6 +270,7 @@ bool training_window::create_controls()
     apply_font(_sample_play_button);
     apply_font(_sample_save_button);
     apply_font(_sample_update_button);
+    apply_font(_open_directory_button);
     apply_font(_batch_count_label);
     apply_font(_batch_count_edit);
     apply_font(_batch_adaptation_button);
@@ -279,7 +286,7 @@ void training_window::layout_controls(int width, int height)
 {
     if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label ||
         !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text ||
-        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button || !_sample_update_button || !_batch_count_label || !_batch_count_edit || !_batch_adaptation_button)
+        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button || !_sample_update_button || !_open_directory_button || !_batch_count_label || !_batch_count_edit || !_batch_adaptation_button)
     {
         return;
     }
@@ -318,6 +325,7 @@ void training_window::layout_controls(int width, int height)
     MoveWindow(_batch_count_label, margin, batch_y, 150, control_height, TRUE);
     MoveWindow(_batch_count_edit, margin + 155, batch_y, 70, control_height, TRUE);
     MoveWindow(_batch_adaptation_button, margin + 235, batch_y, 220, control_height, TRUE);
+    MoveWindow(_open_directory_button, margin + 470, batch_y, 150, control_height, TRUE);
 }
 
 void training_window::refresh_records()
@@ -606,6 +614,25 @@ void training_window::submit_all_samples_for_adaptation()
     {
         set_status(L"全サンプルの一括適応を開始しました。SAPI の完了通知を待っています。");
     }
+}
+
+void training_window::open_sample_directory()
+{
+    std::wstring directory;
+    if (!get_sample_directory(directory, true))
+    {
+        set_status(L"サンプル保存先フォルダーを作成できませんでした。");
+        return;
+    }
+
+    const HINSTANCE result = ShellExecuteW(_window, L"open", directory.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<INT_PTR>(result) <= 32)
+    {
+        set_status(L"エクスプローラーでサンプル保存先を開けませんでした。");
+        return;
+    }
+
+    set_status(L"サンプル保存先をエクスプローラーで開きました。");
 }
 
 void training_window::update_selected_sample_text()
