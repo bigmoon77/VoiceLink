@@ -157,9 +157,9 @@ void main_window::append_recognized_text(const std::wstring& text)
 
     std::wstring append_text;
     const std::wstring current_text = get_text();
-    if (!current_text.empty() && current_text.back() != L'\\n')
+    if (!current_text.empty() && current_text.back() != L'\n')
     {
-        append_text = L"\\r\\n";
+        append_text = L"\r\n";
     }
     append_text += text;
 
