@@ -12,6 +12,9 @@
     <Filter Include="Text to Speech">
       <UniqueIdentifier>{A7D51A43-2F63-4C19-8E79-51B9B6C6E7A1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Speech to Text">
+      <UniqueIdentifier>{B6E2F9C1-6D8A-4A3B-9C21-7F5D3A8B1E40}</UniqueIdentifier>
+    </Filter>
     <Filter Include="リソース ファイル">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
