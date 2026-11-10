@@ -1,4 +1,4 @@
-# VoiceLink Design
+﻿# VoiceLink Design
 
 このドキュメントは VoiceLink のシステム構成、モジュール境界、クラス設計、データフロー、設計上の決定事項を管理します。
 実装の進行に合わせて更新してください。
