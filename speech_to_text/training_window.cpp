@@ -19,6 +19,15 @@ training_window::training_window(HWND parent)
 {
 }
 
+training_window::~training_window()
+{
+    if (_window)
+    {
+        DestroyWindow(_window);
+        _window = nullptr;
+    }
+}
+
 void training_window::show()
 {
     if (!_window && !create())
