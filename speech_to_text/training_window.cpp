@@ -713,7 +713,33 @@ bool training_window::write_utf8_text(const std::wstring& path, const std::wstri
     {
         return false;
     }
-    return write_file(path, data);
+
+    const std::wstring temporary_path = path + L".tmp";
+    HANDLE file = CreateFileW(temporary_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+
+    bool success = true;
+    std::size_t written_offset = 0;
+    while (written_offset < data.size())
+    {
+        const DWORD chunk_size = static_cast<DWORD>((std::min)(data.size() - written_offset, static_cast<std::size_t>(MAXDWORD)));
+        DWORD written = 0;
+        if (!WriteFile(file, data.data() + written_offset, chunk_size, &written, nullptr) || written == 0)
+        {
+            success = false;
+            break;
+        }
+        written_offset += written;
+    }
+    if (success) success = FlushFileBuffers(file) != FALSE;
+    CloseHandle(file);
+
+    if (success)
+    {
+        success = MoveFileExW(temporary_path.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != FALSE;
+    }
+    if (!success) DeleteFileW(temporary_path.c_str());
+    return success;
 }
 
 std::wstring training_window::create_sample_base_name(const std::wstring& directory) const
