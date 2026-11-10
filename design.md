@@ -17,7 +17,7 @@ VoiceLink は Windows 上で動作する音声入出力アプリケーション�
 3. GUI から VOICEVOX の話者・スタイルを選択できる。
 4. GUI から読み上げ対象のテキストを入力できる。
 
-初期 GUI は動作確認用のシンプルなウィンドウとします。
+初期 GUI は Win32 API と Windows 標準コントロールで実装します。外部 GUI フレームワークへの依存は追加しません。
 
 - 話者選択 Drop-down: VOICEVOX Engine から取得した話者・スタイル一覧を表示する。
 - Debug 用 TextBox: 読み上げ対象のテキストを入力・編集する複数行テキストボックス。
@@ -66,10 +66,9 @@ VoiceLink/
 ├── VoiceLink.sln
 ├── AGENTS.md
 ├── design.md
-├── VoiceLink/                 # Windows アプリケーション (EXE)
-│   ├── main.cpp
-│   ├── main_window.h
-│   └── main_window.cpp
+├── main.cpp                   # Windows GUI entry point
+├── main_window.h               # Win32 main window interface
+├── main_window.cpp             # Win32 main window implementation
 ├── VoiceLink.TTS/             # 音声合成ライブラリ (static LIB)
 │   ├── tts_engine.h
 │   ├── voicevox_engine.h
@@ -102,7 +101,7 @@ VOICEVOX Engine は別プロセスとして起動し、HTTP API で接続しま�
 
 #### `main_window`
 
-初期 GUI を管理するクラスです。
+Win32 API を利用して初期 GUI を管理するクラスです。
 
 **表示要素**
 - `speaker_combo_box`: 話者・スタイル選択。
@@ -118,6 +117,8 @@ VOICEVOX Engine は別プロセスとして起動し、HTTP API で接続しま�
 - 処理結果やエラーを状態表示へ反映する。
 
 GUI のイベントハンドラーに HTTP 通信や WAV 再生の詳細を直接実装しません。処理は各モジュールへ委譲します。
+
+Win32 標準コントロールを使用し、`CreateWindowExW` で ComboBox、複数行 Edit、Button、状態表示用 Static を生成します。`main_window` は話者一覧の投入、入力テキストと選択 ID の取得、再生要求コールバック、状態表示の更新を担当します。
 
 ### 3.2 VoiceLink.TTS
 
@@ -332,7 +333,7 @@ Audio Output Device
 
 | 項目 | 現状 | 決定時の観点 |
 |---|---|---|
-| GUI フレームワーク | 未選定 | Windows 標準コントロールか Dear ImGui か。初期 UI の簡潔さと依存関係 |
+| GUI フレームワーク | **決定: Win32 標準コントロール** | Windows API の ComboBox / Edit / Button / Static を使用。追加の GUI 依存なし |
 | C++ 言語標準 | 未確定 | 利用するコンパイラ・依存ライブラリとの互換性 |
 | HTTP クライアント | 未選定 | 導入コスト、同期/非同期、タイムアウト、ライセンス |
 | JSON ライブラリ | 未選定 | UTF-8 対応、保守性、ライセンス |
@@ -342,7 +343,14 @@ Audio Output Device
 | 設定保存形式 | 未確定 | 接続先、話者 ID、音量などの保存 |
 | VOICEVOX Engine の管理 | 初期は手動起動 | 将来の起動検出・自動起動・終了管理 |
 
-## 9. 更新ルール
+## 9. 現在の実装状況
+
+- Win32 のメインウィンドウと標準コントロールを実装済み。
+- 話者一覧を ComboBox に設定する API、選択中の speaker ID を取得する API、テキスト取得 API を用意。
+- 再生ボタンはコールバック経由でアプリケーションへ通知する。
+- VOICEVOX 接続、話者一覧取得、TTS 合成、音声再生のバックエンドは未実装。現段階の再生ボタンは未接続状態をステータス表示する。
+
+## 10. 更新ルール
 
 - クラスを追加・削除した場合は、該当モジュールの設計を更新する。
 - 公開インターフェースを変更した場合は、クラス設計とデータフローを更新する。
