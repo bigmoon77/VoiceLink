@@ -39,4 +39,9 @@ public:
     {
         return false;
     }
+
+    virtual bool submit_adaptation_batch(const std::vector<std::wstring>&, std::size_t)
+    {
+        return false;
+    }
 };
