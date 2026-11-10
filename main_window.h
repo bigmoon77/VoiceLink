@@ -31,6 +31,7 @@ public:
     void set_play_enabled(bool enabled);
     void set_recognition_start_enabled(bool enabled);
     void set_recognition_stop_enabled(bool enabled);
+    void set_training_enabled(bool enabled);
     void append_recognized_text(const std::wstring& text);
     void set_reconnect_enabled(bool enabled);
     void set_voicevox_path_enabled(bool enabled);
@@ -42,6 +43,7 @@ public:
     void set_play_callback(std::function<void()> callback);
     void set_recognition_start_callback(std::function<void()> callback);
     void set_recognition_stop_callback(std::function<void()> callback);
+    void set_training_callback(std::function<void()> callback);
     void set_reconnect_callback(std::function<void()> callback);
     void set_volume_callback(std::function<void(int)> callback);
     void set_volume_test_callback(std::function<void()> callback);
@@ -70,7 +72,8 @@ private:
         engine_path_browse_button_id,
         engine_path_apply_button_id,
         recognition_start_button_id,
-        recognition_stop_button_id
+        recognition_stop_button_id,
+        training_button_id
     };
 
     static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param);
@@ -96,6 +99,7 @@ private:
     HWND _play_button = nullptr;
     HWND _recognition_start_button = nullptr;
     HWND _recognition_stop_button = nullptr;
+    HWND _training_button = nullptr;
     HWND _status_text = nullptr;
     HWND _volume_label = nullptr;
     HWND _volume_slider = nullptr;
@@ -103,6 +107,7 @@ private:
     std::function<void()> _play_callback;
     std::function<void()> _recognition_start_callback;
     std::function<void()> _recognition_stop_callback;
+    std::function<void()> _training_callback;
     std::function<void()> _reconnect_callback;
     std::function<void(int)> _volume_callback;
     std::function<void()> _volume_test_callback;

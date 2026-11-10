@@ -136,6 +136,7 @@
     <ClCompile Include="text_to_speech\voicevox_process.cpp" />
     <ClCompile Include="speech_to_text\sapi_engine.cpp" />
     <ClCompile Include="speech_to_text\stt_controller.cpp" />
+    <ClCompile Include="speech_to_text\training_window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main_window.h" />
@@ -148,6 +149,7 @@
     <ClInclude Include="speech_to_text\speech_recognition_engine.h" />
     <ClInclude Include="speech_to_text\sapi_engine.h" />
     <ClInclude Include="speech_to_text\stt_controller.h" />
+    <ClInclude Include="speech_to_text\training_window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
