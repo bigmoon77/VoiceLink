@@ -48,6 +48,9 @@
     <ClCompile Include="speech_to_text\stt_controller.cpp">
       <Filter>Speech to Text</Filter>
     </ClCompile>
+    <ClCompile Include="speech_to_text\training_window.cpp">
+      <Filter>Speech to Text</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main_window.h">
@@ -78,6 +81,9 @@
       <Filter>Speech to Text</Filter>
     </ClInclude>
     <ClInclude Include="speech_to_text\stt_controller.h">
+      <Filter>Speech to Text</Filter>
+    </ClInclude>
+    <ClInclude Include="speech_to_text\training_window.h">
       <Filter>Speech to Text</Filter>
     </ClInclude>
   </ItemGroup>
