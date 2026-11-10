@@ -132,6 +132,7 @@
     <ClCompile Include="voicevox_engine.cpp" />
     <ClCompile Include="audio_player.cpp" />
     <ClCompile Include="tts_controller.cpp" />
+    <ClCompile Include="voicevox_process.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main_window.h" />
@@ -139,6 +140,7 @@
     <ClInclude Include="audio_player.h" />
     <ClInclude Include="tts_controller.h" />
     <ClInclude Include="tts_engine.h" />
+    <ClInclude Include="voicevox_process.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
