@@ -50,7 +50,8 @@ private:
         sample_list_id,
         capture_button_id,
         sample_play_button_id,
-        sample_save_button_id
+        sample_save_button_id,
+        sample_update_button_id
     };
 
     static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param);
@@ -68,6 +69,7 @@ private:
     void stop_recording();
     void play_selected_sample();
     void save_recorded_sample();
+    void update_selected_sample_text();
     std::wstring get_correction_text() const;
     bool save_training_text(const std::wstring& text) const;
     bool get_sample_directory(std::wstring& directory, bool create) const;
@@ -95,6 +97,7 @@ private:
     HWND _capture_button = nullptr;
     HWND _sample_play_button = nullptr;
     HWND _sample_save_button = nullptr;
+    HWND _sample_update_button = nullptr;
 
     std::vector<speech_recognition_result> _records;
     std::vector<training_sample> _samples;
