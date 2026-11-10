@@ -39,6 +39,6 @@ bool audio_player::play(const std::vector<std::uint8_t>& wav_data)
 
 void audio_player::stop()
 {
-    PlaySoundW(nullptr, nullptr, SND_PURGE);
+    PlaySoundW(nullptr, nullptr, 0);
     _wav_data.clear();
 }
