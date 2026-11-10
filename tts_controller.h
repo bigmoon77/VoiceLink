@@ -4,6 +4,8 @@
 #include "main_window.h"
 #include "tts_engine.h"
 
+#include <Windows.h>
+
 #include <atomic>
 #include <cstdint>
 #include <functional>
@@ -40,6 +42,7 @@ private:
     };
 
     void on_play();
+    void on_volume_test();
     bool handle_window_message(UINT message, WPARAM w_param, LPARAM l_param);
     void start_worker(std::function<void()> task);
 

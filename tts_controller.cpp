@@ -15,17 +15,36 @@ tts_controller::tts_controller(main_window& window, audio_player& player)
         on_play();
     });
 
+    _window.set_reconnect_callback([this]()
+    {
+        initialize_async();
+    });
+
+    _window.set_volume_callback([this](int volume)
+    {
+        _player.set_volume(volume);
+    });
+
+    _window.set_volume_test_callback([this]()
+    {
+        on_volume_test();
+    });
+
     _window.set_message_callback([this](UINT message, WPARAM w_param, LPARAM l_param)
     {
         return handle_window_message(message, w_param, l_param);
     });
 
     _window.set_play_enabled(false);
+    _window.set_reconnect_enabled(true);
 }
 
 tts_controller::~tts_controller()
 {
     _window.set_play_callback({});
+    _window.set_reconnect_callback({});
+    _window.set_volume_callback({});
+    _window.set_volume_test_callback({});
     _window.set_message_callback({});
 
     if (_worker.joinable())
@@ -43,6 +62,9 @@ void tts_controller::initialize_async()
         return;
     }
 
+    _initialized = false;
+    _window.set_play_enabled(false);
+    _window.set_reconnect_enabled(false);
     _window.set_status(L"VOICEVOX Engine に接続しています...");
 
     start_worker([this]()
@@ -149,6 +171,17 @@ void tts_controller::on_play()
     });
 }
 
+void tts_controller::on_volume_test()
+{
+    if (!_player.play_test_tone())
+    {
+        _window.set_status(L"音量確認用のテスト音を再生できませんでした。");
+        return;
+    }
+
+    _window.set_status(L"音量確認用のテスト音を再生しています。");
+}
+
 bool tts_controller::handle_window_message(UINT message, WPARAM, LPARAM)
 {
     if (message == speakers_ready_message)
@@ -164,12 +197,14 @@ bool tts_controller::handle_window_message(UINT message, WPARAM, LPARAM)
             result = std::move(_speakers_result);
         }
         _busy = false;
+        _window.set_reconnect_enabled(true);
 
         if (!result.error.empty())
         {
             _window.set_speakers({});
             _window.set_play_enabled(false);
             _window.set_status(L"VOICEVOX 接続失敗: " + result.error);
+            _initialized = false;
             return true;
         }
 
