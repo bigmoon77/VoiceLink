@@ -30,6 +30,7 @@ public:
     void set_status(const std::wstring& message);
     void set_play_enabled(bool enabled);
     void set_reconnect_enabled(bool enabled);
+    void set_voicevox_path_enabled(bool enabled);
     void set_volume(int volume);
     void set_voicevox_path(const std::wstring& path);
     std::wstring get_voicevox_path() const;
