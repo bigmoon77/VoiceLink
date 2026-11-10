@@ -3,7 +3,6 @@
 
 #include <winrt/base.h>
 
-#include <functional>
 #include <utility>
 
 tts_controller::tts_controller(main_window& window, audio_player& player)
@@ -125,7 +124,7 @@ void tts_controller::on_play()
     });
 }
 
-bool tts_controller::handle_window_message(UINT message, WPARAM, LPARAM l_param)
+bool tts_controller::handle_window_message(UINT message, WPARAM, LPARAM)
 {
     if (message == speakers_ready_message)
     {
