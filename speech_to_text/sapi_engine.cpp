@@ -11,6 +11,19 @@
 
 namespace
 {
+    struct com_apartment_guard
+    {
+        bool initialized = false;
+
+        ~com_apartment_guard()
+        {
+            if (initialized)
+            {
+                CoUninitialize();
+            }
+        }
+    };
+
     std::wstring get_hresult_message(HRESULT result)
     {
         wchar_t* message_buffer = nullptr;
@@ -67,13 +80,16 @@ bool sapi_engine::run(
         return false;
     }
 
+    com_apartment_guard apartment_guard;
+    apartment_guard.initialized = true;
+
     bool success = false;
     Microsoft::WRL::ComPtr<ISpRecognizer> recognizer;
     Microsoft::WRL::ComPtr<ISpRecoContext> context;
     Microsoft::WRL::ComPtr<ISpRecoGrammar> grammar;
 
     HRESULT result = CoCreateInstance(
-        CLSID_SpInprocRecognizer,
+        CLSID_SpSharedRecognizer,
         nullptr,
         CLSCTX_INPROC_SERVER,
         IID_PPV_ARGS(recognizer.GetAddressOf())
@@ -81,7 +97,6 @@ bool sapi_engine::run(
 
     if (!set_error(result, L"SAPI 音声認識エンジンを作成できません", error))
     {
-        CoUninitialize();
         return false;
     }
 
@@ -136,8 +151,13 @@ bool sapi_engine::run(
 
     success = true;
     const HANDLE event_handle = context->GetNotifyEventHandle();
+    if (!event_handle || event_handle == INVALID_HANDLE_VALUE)
+    {
+        error = L"音声認識イベントハンドルを取得できません。";
+        success = false;
+    }
 
-    while (!stop_requested.load())
+    while (success && (!stop_requested.load())
     {
         const DWORD wait_result = WaitForSingleObject(event_handle, 100);
         if (wait_result == WAIT_TIMEOUT)
@@ -208,6 +228,5 @@ bool sapi_engine::run(
     grammar.Reset();
     context.Reset();
     recognizer.Reset();
-    CoUninitialize();
     return success;
 }
