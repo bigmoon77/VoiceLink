@@ -128,6 +128,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="app_settings.cpp" />
     <ClCompile Include="main_window.cpp" />
     <ClCompile Include="voicevox_engine.cpp" />
     <ClCompile Include="audio_player.cpp" />
@@ -136,6 +137,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main_window.h" />
+    <ClInclude Include="app_settings.h" />
     <ClInclude Include="voicevox_engine.h" />
     <ClInclude Include="audio_player.h" />
     <ClInclude Include="tts_controller.h" />
