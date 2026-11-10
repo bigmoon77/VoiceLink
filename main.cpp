@@ -1,4 +1,5 @@
 #include "main_window.h"
+#include "tts_controller.h"
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
 {
@@ -15,10 +16,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
         return 1;
     }
 
-    window.set_play_callback([&window]()
-    {
-        window.set_status(L"TTS backend はまだ接続されていません。");
-    });
+    audio_player player;
+    tts_controller controller(window, player);
+    controller.initialize_async();
 
     MSG message{};
     while (GetMessageW(&message, nullptr, 0, 0) > 0)
