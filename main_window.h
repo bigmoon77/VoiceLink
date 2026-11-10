@@ -75,7 +75,10 @@ private:
 
     HINSTANCE _instance = nullptr;
     HWND _window = nullptr;
-    HWND _engine_path_label = nullptr;\n    HWND _engine_path_edit = nullptr;\n    HWND _engine_path_browse_button = nullptr;\n    HWND _engine_path_apply_button = nullptr;\n    HWND _speaker_label = nullptr;
+    HWND _engine_path_label = nullptr;
+    HWND _engine_path_edit = nullptr;
+    HWND _engine_path_browse_button = nullptr;
+    HWND _engine_path_apply_button = nullptr;\n    HWND _speaker_label = nullptr;
     HWND _speaker_combo = nullptr;
     HWND _reconnect_button = nullptr;
     HWND _text_label = nullptr;
