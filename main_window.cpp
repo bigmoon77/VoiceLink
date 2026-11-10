@@ -531,7 +531,7 @@ bool main_window::create_controls()
     );
 
     _recognition_start_button = CreateWindowExW(
-        0, L\"BUTTON\", L\"Start Recognition\",
+        0, L"BUTTON", L"Start Recognition",
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
         0, 0, 0, 0, _window,
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(recognition_start_button_id)),
@@ -539,7 +539,7 @@ bool main_window::create_controls()
     );
 
     _recognition_stop_button = CreateWindowExW(
-        0, L\"BUTTON\", L\"Stop\",
+        0, L"BUTTON", L"Stop",
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
         0, 0, 0, 0, _window,
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(recognition_stop_button_id)),
