@@ -152,7 +152,13 @@ LRESULT training_window::handle_message(UINT message, WPARAM w_param, LPARAM l_p
                 const std::wstring text = get_correction_text();
                 if (text.empty()) set_status(L"学習データが空です。");
                 else if (!save_training_text(text)) set_status(L"訂正履歴を保存できませんでした。");
-                else _adaptation_callback(text);
+                else
+                {
+                    speech_recognition_result saved_record;
+                    saved_record.text = text;
+                    add_record(saved_record);
+                    _adaptation_callback(text);
+                }
             }
             return 0;
         case close_button_id:
