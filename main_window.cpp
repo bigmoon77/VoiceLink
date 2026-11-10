@@ -156,6 +156,16 @@ void main_window::set_play_callback(std::function<void()> callback)
     _play_callback = std::move(callback);
 }
 
+void main_window::set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback)
+{
+    _message_callback = std::move(callback);
+}
+
+HWND main_window::get_handle() const
+{
+    return _window;
+}
+
 LRESULT CALLBACK main_window::window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
 {
     main_window* self = reinterpret_cast<main_window*>(GetWindowLongPtrW(window, GWLP_USERDATA));
@@ -178,6 +188,11 @@ LRESULT CALLBACK main_window::window_proc(HWND window, UINT message, WPARAM w_pa
 
 LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param)
 {
+    if (_message_callback && _message_callback(message, w_param, l_param))
+    {
+        return 0;
+    }
+
     switch (message)
     {
     case WM_CREATE:
