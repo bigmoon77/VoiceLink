@@ -160,7 +160,7 @@ voicevox_engine::~voicevox_engine()
 }
 
 bool voicevox_engine::initialize(
-    std::vector<speaker_style>& speakers,
+    std::vector<tts_engine::speaker_style>& speakers,
     std::wstring& error
 )
 {
@@ -182,7 +182,7 @@ bool voicevox_engine::initialize(
             winrt::hstring(utf8_to_wide(json_text))
         );
 
-        std::vector<speaker_style> result;
+        std::vector<tts_engine::speaker_style> result;
         for (const auto& speaker_value : json_array)
         {
             const auto speaker = speaker_value.GetObject();
