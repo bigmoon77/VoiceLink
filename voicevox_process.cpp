@@ -106,10 +106,38 @@ voicevox_process::~voicevox_process()
 
 bool voicevox_process::start(const std::wstring& configured_path, std::wstring& error)
 {
-    if (_job && _process_info.hProcess &&
-        WaitForSingleObject(_process_info.hProcess, 0) == WAIT_TIMEOUT)
+    const bool owned_process_running =
+        _job && _process_info.hProcess &&
+        WaitForSingleObject(_process_info.hProcess, 0) == WAIT_TIMEOUT;
+
+    if (owned_process_running)
     {
-        return true;
+        if (configured_path.empty() || configured_path == _started_path)
+        {
+            return true;
+        }
+
+        // The configured executable changed. Stop only the process owned by this instance.
+        CloseHandle(_job);
+        _job = nullptr;
+        WaitForSingleObject(_process_info.hProcess, 5000);
+        CloseHandle(_process_info.hProcess);
+        _process_info.hProcess = nullptr;
+        _started_path.clear();
+    }
+    else
+    {
+        if (_job)
+        {
+            CloseHandle(_job);
+            _job = nullptr;
+        }
+        if (_process_info.hProcess)
+        {
+            CloseHandle(_process_info.hProcess);
+            _process_info.hProcess = nullptr;
+        }
+        _started_path.clear();
     }
 
     // Reuse an Engine started by another application.
@@ -198,6 +226,7 @@ bool voicevox_process::start(const std::wstring& configured_path, std::wstring& 
     }
 
     ResumeThread(_process_info.hThread);
+    _started_path = executable_path;
     CloseHandle(_process_info.hThread);
     _process_info.hThread = nullptr;
 
@@ -209,6 +238,7 @@ bool voicevox_process::start(const std::wstring& configured_path, std::wstring& 
             error = L"VOICEVOX Engine が起動中に終了しました。";
             CloseHandle(_process_info.hProcess);
             _process_info.hProcess = nullptr;
+            _started_path.clear();
             CloseHandle(_job);
             _job = nullptr;
             return false;
@@ -227,6 +257,7 @@ bool voicevox_process::start(const std::wstring& configured_path, std::wstring& 
     _job = nullptr;
     CloseHandle(_process_info.hProcess);
     _process_info.hProcess = nullptr;
+    _started_path.clear();
     return false;
 }
 
