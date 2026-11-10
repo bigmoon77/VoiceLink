@@ -1,6 +1,7 @@
 ﻿#include "training_window.h"
 
 #include <algorithm>
+#include <cwchar>
 #include <fstream>
 #include <iterator>
 #include <limits>
@@ -194,6 +195,9 @@ LRESULT training_window::handle_message(UINT message, WPARAM w_param, LPARAM l_p
         case sample_save_button_id:
             if (HIWORD(w_param) == BN_CLICKED) save_recorded_sample();
             return 0;
+        case sample_update_button_id:
+            if (HIWORD(w_param) == BN_CLICKED) update_selected_sample_text();
+            return 0;
         case close_button_id:
             if (HIWORD(w_param) == BN_CLICKED) ShowWindow(_window, SW_HIDE);
             return 0;
@@ -224,10 +228,11 @@ bool training_window::create_controls()
     _capture_button = CreateWindowExW(0, L"BUTTON", L"録音開始", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(capture_button_id)), instance, nullptr);
     _sample_play_button = CreateWindowExW(0, L"BUTTON", L"選択音声を再生", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_play_button_id)), instance, nullptr);
     _sample_save_button = CreateWindowExW(0, L"BUTTON", L"録音を保存", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_save_button_id)), instance, nullptr);
+    _sample_update_button = CreateWindowExW(0, L"BUTTON", L"テキスト更新", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_update_button_id)), instance, nullptr);
 
     if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label ||
         !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text ||
-        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button)
+        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button || !_sample_update_button)
     {
         return false;
     }
@@ -247,6 +252,7 @@ bool training_window::create_controls()
     apply_font(_capture_button);
     apply_font(_sample_play_button);
     apply_font(_sample_save_button);
+    apply_font(_sample_update_button);
 
     load_training_history();
     refresh_records();
@@ -276,7 +282,7 @@ void training_window::layout_controls(int width, int height)
     const int sample_list_y = sample_label_y + label_height;
     const int sample_list_height = (std::max)(height - sample_list_y - 3 * control_height - 5 * margin - label_height, 80);
     const int sample_buttons_y = sample_list_y + sample_list_height + margin;
-    const int button_width = 130;
+    const int button_width = 125;
 
     MoveWindow(_record_label, margin, list_label_y, content_width, label_height, TRUE);
     MoveWindow(_record_list, margin, list_y, content_width, list_height, TRUE);
@@ -291,8 +297,9 @@ void training_window::layout_controls(int width, int height)
     MoveWindow(_sample_label, margin, sample_label_y, content_width, label_height, TRUE);
     MoveWindow(_sample_list, margin, sample_list_y, content_width, sample_list_height, TRUE);
     MoveWindow(_capture_button, margin, sample_buttons_y, button_width, control_height, TRUE);
-    MoveWindow(_sample_play_button, margin + button_width + margin, sample_buttons_y, button_width + 20, control_height, TRUE);
-    MoveWindow(_sample_save_button, margin + (button_width + margin) * 2 + 20, sample_buttons_y, button_width, control_height, TRUE);
+    MoveWindow(_sample_play_button, margin + button_width + margin, sample_buttons_y, button_width + 15, control_height, TRUE);
+    MoveWindow(_sample_save_button, margin + (button_width + margin) * 2 + 15, sample_buttons_y, button_width, control_height, TRUE);
+    MoveWindow(_sample_update_button, margin + (button_width + margin) * 3 + 15, sample_buttons_y, button_width, control_height, TRUE);
 }
 
 void training_window::refresh_records()
@@ -408,6 +415,7 @@ void training_window::select_training_sample()
     if (selected == LB_ERR || static_cast<std::size_t>(selected) >= _samples.size()) return;
 
     const training_sample& sample = _samples[static_cast<std::size_t>(selected)];
+    _recorded_audio.clear();
     std::vector<std::uint8_t> audio_data;
     if (!read_file(sample.wav_path, audio_data) || audio_data.size() < 44)
     {
@@ -515,7 +523,42 @@ void training_window::save_recorded_sample()
     refresh_sample_list();
     SendMessageW(_sample_list, LB_SETCURSEL, static_cast<WPARAM>(_samples.size() - 1), 0);
     _selected_audio = _recorded_audio;
+    _recorded_audio.clear();
     set_status(L"音声と正解テキストを保存しました。");
+}
+
+void training_window::update_selected_sample_text()
+{
+    const LRESULT selected = SendMessageW(_sample_list, LB_GETCURSEL, 0, 0);
+    if (selected == LB_ERR || static_cast<std::size_t>(selected) >= _samples.size())
+    {
+        set_status(L"テキストを更新するサンプルを選択してください。");
+        return;
+    }
+
+    const std::wstring text = get_correction_text();
+    if (text.empty())
+    {
+        set_status(L"正解テキストを入力してください。");
+        return;
+    }
+
+    training_sample& sample = _samples[static_cast<std::size_t>(selected)];
+    const std::size_t extension = sample.wav_path.rfind(L".wav");
+    if (extension == std::wstring::npos)
+    {
+        set_status(L"サンプルファイル名が不正です。");
+        return;
+    }
+    const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
+    if (!write_utf8_text(text_path, text))
+    {
+        set_status(L"正解テキストを更新できませんでした。");
+        return;
+    }
+
+    sample.text = text;
+    set_status(L"選択中のサンプルの正解テキストを更新しました。");
 }
 
 std::wstring training_window::get_correction_text() const
