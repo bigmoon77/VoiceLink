@@ -1,6 +1,7 @@
 ﻿#include "app_settings.h"
 #include "main_window.h"
 #include "text_to_speech/tts_controller.h"
+#include "speech_to_text/stt_controller.h"
 
 #include <winrt/base.h>
 
@@ -27,6 +28,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
 
     audio_player player;
     tts_controller controller(window, player);
+    stt_controller speech_controller(window);
     window.set_voicevox_path(settings.get_voicevox_path());
     controller.set_voicevox_path(settings.get_voicevox_path());
 
