@@ -124,7 +124,7 @@ HTTP 通信や WAV 再生の詳細は扱わず、`tts_controller` へ委譲し�
 
 #### `app_settings`
 
-`%APPDATA%\\VoiceLink\\config.json` を読み書きし、VOICEVOX Engine の実行ファイルパスを保持します。JSON は UTF-8 で保存し、設定キー `voicevox_path` に絶対パスを記録します。
+`%APPDATA%\\VoiceLink\\config.json` を読み書きし、VOICEVOX Engine の実行ファイルパスを保持します。JSON は UTF-8 で保存し、設定キー `voicevox_path` に実行ファイルパスを記録します。
 
 #### `tts_controller`
 
