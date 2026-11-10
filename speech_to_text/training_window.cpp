@@ -1,7 +1,9 @@
 ﻿#include "training_window.h"
 
 #include <algorithm>
+#include <string>
 #include <utility>
+#include <vector>
 
 constexpr wchar_t training_window::_window_class_name[];
 
@@ -147,6 +149,7 @@ LRESULT training_window::handle_message(UINT message, WPARAM w_param, LPARAM l_p
             {
                 const std::wstring text = get_correction_text();
                 if (text.empty()) set_status(L"学習データが空です。");
+                else if (!save_training_text(text)) set_status(L"訂正履歴を保存できませんでした。");
                 else _adaptation_callback(text);
             }
             return 0;
@@ -235,6 +238,47 @@ std::wstring training_window::get_correction_text() const
     std::vector<wchar_t> buffer(static_cast<size_t>(length) + 1, L'\0');
     const int copied = GetWindowTextW(_correction_edit, buffer.data(), length + 1);
     return std::wstring(buffer.data(), static_cast<size_t>(std::max(copied, 0)));
+}
+
+bool training_window::save_training_text(const std::wstring& text) const
+{
+    wchar_t app_data[MAX_PATH]{};
+    const DWORD path_length = GetEnvironmentVariableW(L"APPDATA", app_data, MAX_PATH);
+    if (path_length == 0 || path_length >= MAX_PATH) return false;
+
+    const std::wstring directory = std::wstring(app_data) + L"\\VoiceLink";
+    if (!CreateDirectoryW(directory.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
+
+    const std::wstring file_path = directory + L"\\sapi_training.txt";
+    HANDLE file = CreateFileW(file_path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+
+    LARGE_INTEGER file_size{};
+    const bool has_size = GetFileSizeEx(file, &file_size) != FALSE;
+    bool success = has_size;
+    if (success && file_size.QuadPart == 0)
+    {
+        const char bom[] = { static_cast<char>(0xEF), static_cast<char>(0xBB), static_cast<char>(0xBF) };
+        DWORD written = 0;
+        success = WriteFile(file, bom, sizeof(bom), &written, nullptr) != FALSE && written == sizeof(bom);
+    }
+
+    std::wstring line = text + L"\r\n";
+    const int byte_count = WideCharToMultiByte(CP_UTF8, 0, line.data(), static_cast<int>(line.size()), nullptr, 0, nullptr, nullptr);
+    if (success && byte_count > 0)
+    {
+        std::vector<char> utf8(static_cast<size_t>(byte_count));
+        const int converted = WideCharToMultiByte(CP_UTF8, 0, line.data(), static_cast<int>(line.size()), utf8.data(), byte_count, nullptr, nullptr);
+        DWORD written = 0;
+        success = converted == byte_count && WriteFile(file, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr) != FALSE && written == utf8.size();
+    }
+    else
+    {
+        success = false;
+    }
+
+    CloseHandle(file);
+    return success;
 }
 
 void training_window::apply_font(HWND control)
