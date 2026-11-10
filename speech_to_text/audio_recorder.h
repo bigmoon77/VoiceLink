@@ -4,7 +4,9 @@
 #include <mmsystem.h>
 
 #include <array>
+#include <cstdint>
 #include <mutex>
+#include <string>
 #include <vector>
 
 class audio_recorder
