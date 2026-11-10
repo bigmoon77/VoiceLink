@@ -12,6 +12,7 @@
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "uuid.lib")
 
 constexpr wchar_t main_window::_window_class_name[];
 
