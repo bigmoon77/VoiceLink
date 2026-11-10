@@ -75,10 +75,16 @@ void tts_controller::initialize_async()
 
         try
         {
-            winrt::init_apartment(winrt::apartment_type::multi_threaded);
-            apartment_initialized = true;
+            if (!_voicevox_process.start(result.error))
+            {
+                // Keep the connection failure in the normal initialization result.
+            }
+            else
+            {
+                winrt::init_apartment(winrt::apartment_type::multi_threaded);
+                apartment_initialized = true;
 
-            if (_engine->initialize(engine_speakers, result.error))
+                if (_engine->initialize(engine_speakers, result.error))
             {
                 result.speakers.reserve(engine_speakers.size());
 
@@ -89,6 +95,7 @@ void tts_controller::initialize_async()
                     display_name += speaker.style_name;
 
                     result.speakers.push_back({ std::move(display_name), speaker.speaker_id });
+                    }
                 }
             }
         }
