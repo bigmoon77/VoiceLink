@@ -27,4 +27,5 @@ private:
 
     HANDLE _job = nullptr;
     PROCESS_INFORMATION _process_info{};
+    std::wstring _started_path;
 };
