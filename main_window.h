@@ -79,7 +79,8 @@ private:
     HWND _engine_path_label = nullptr;
     HWND _engine_path_edit = nullptr;
     HWND _engine_path_browse_button = nullptr;
-    HWND _engine_path_apply_button = nullptr;\n    HWND _speaker_label = nullptr;
+    HWND _engine_path_apply_button = nullptr;
+    HWND _speaker_label = nullptr;
     HWND _speaker_combo = nullptr;
     HWND _reconnect_button = nullptr;
     HWND _text_label = nullptr;
@@ -92,6 +93,7 @@ private:
     std::function<void()> _play_callback;
     std::function<void()> _reconnect_callback;
     std::function<void(int)> _volume_callback;
-    std::function<void()> _volume_test_callback;\n    std::function<void(const std::wstring&)> _voicevox_path_callback;
+    std::function<void()> _volume_test_callback;
+    std::function<void(const std::wstring&)> _voicevox_path_callback;
     std::function<bool(UINT, WPARAM, LPARAM)> _message_callback;
 };
