@@ -3,6 +3,7 @@
 #include "audio_player.h"
 #include "main_window.h"
 #include "tts_engine.h"
+#include "voicevox_process.h"
 
 #include <Windows.h>
 
@@ -49,6 +50,7 @@ private:
     main_window& _window;
     audio_player& _player;
     std::unique_ptr<tts_engine> _engine;
+    voicevox_process _voicevox_process;
     std::thread _worker;
     std::atomic<bool> _busy{ false };
     std::mutex _result_mutex;
