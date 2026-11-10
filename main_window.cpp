@@ -4,6 +4,8 @@
 #include <utility>
 #include <vector>
 
+constexpr wchar_t main_window::_window_class_name[];
+
 namespace
 {
     constexpr int window_width = 560;
