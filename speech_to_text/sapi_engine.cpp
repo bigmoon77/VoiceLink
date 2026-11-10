@@ -366,8 +366,11 @@ bool sapi_engine::run(
             }
             else if (speech_event.eEventId == SPEI_ADAPTATION)
             {
-                adaptation_start_tick = 0;
-                send_next_adaptation();
+                if (_adaptation_pending.load())
+                {
+                    adaptation_start_tick = 0;
+                    send_next_adaptation();
+                }
             }
             else if (speech_event.elParamType == SPET_LPARAM_IS_OBJECT && speech_event.lParam != 0)
             {
