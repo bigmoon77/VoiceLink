@@ -169,6 +169,7 @@ bool sapi_engine::run(
     }
     _pending_alternates.clear();
     _adaptation_pending = false;
+    ULONGLONG adaptation_start_tick = 0;
     _running = true;
 
     const auto process_commands = [&]()
@@ -205,11 +206,13 @@ bool sapi_engine::run(
                 if (FAILED(adaptation_result))
                 {
                     _adaptation_pending = false;
+                    adaptation_start_tick = 0;
                     if (on_status) on_status(L"学習データの送信に失敗しました: " + get_hresult_message(adaptation_result));
                 }
-                else if (on_status)
+                else
                 {
-                    on_status(L"学習データをSAPIへ送信しました。エンジンが適応処理に対応している場合に反映されます。");
+                    adaptation_start_tick = GetTickCount64();
+                    if (on_status) on_status(L"学習データをSAPIへ送信しました。エンジンの適応処理を待っています。");
                 }
             }
         }
@@ -220,7 +223,16 @@ bool sapi_engine::run(
     while (!stop_requested.load())
     {
         const DWORD wait_result = WaitForMultipleObjects(2, wait_handles, FALSE, 100);
-        if (wait_result == WAIT_TIMEOUT) continue;
+        if (wait_result == WAIT_TIMEOUT)
+        {
+            if (_adaptation_pending.load() && adaptation_start_tick != 0 && GetTickCount64() - adaptation_start_tick > 30000)
+            {
+                _adaptation_pending = false;
+                adaptation_start_tick = 0;
+                if (on_status) on_status(L"SAPIから適応完了通知がありません。エンジンが学習に対応していない可能性があります。");
+            }
+            continue;
+        }
         if (wait_result == WAIT_OBJECT_0 + 1)
         {
             process_commands();
@@ -314,6 +326,7 @@ bool sapi_engine::run(
             else if (speech_event.eEventId == SPEI_ADAPTATION)
             {
                 _adaptation_pending = false;
+                adaptation_start_tick = 0;
                 if (on_status) on_status(L"SAPIの適応処理が完了しました。");
             }
             else if (speech_event.elParamType == SPET_LPARAM_IS_OBJECT && speech_event.lParam != 0)
