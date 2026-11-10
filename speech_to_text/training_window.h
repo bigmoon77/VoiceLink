@@ -13,7 +13,7 @@ class training_window
 {
 public:
     training_window(HWND parent);
-    ~training_window() = default;
+    ~training_window();
 
     training_window(const training_window&) = delete;
     training_window& operator=(const training_window&) = delete;
