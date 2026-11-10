@@ -8,7 +8,7 @@
 VoiceLink は Windows 上で動作する音声入出力アプリケーションです。
 最終的には、グローバルホットキーで音声を入力し、認識テキストを ChatGPT の Web 入力欄へ渡す機能を提供します。
 
-初期開発では、VOICEVOX を利用した Text-to-Speech の変換・再生機能を先行して実装します。
+初期開発では、VOICEVOX を利用した Text-to-Speech の変換・再生機能を実装済みです。続いて、Windows 標準の SAPI を利用した音声認識機能を追加します。
 
 ### 1.1 初期リリースの最低限の機能要件
 
@@ -51,9 +51,10 @@ VoiceLink (Application)
     |
     +-- voicevox_process
     |      +-- Engine path discovery / process ownership
-    +-- [Future] VoiceLink.Speech
-    |      +-- audio_capture
-    |      +-- speech_recognizer
+    +-- VoiceLink.Speech
+    |      +-- stt_controller
+    |      +-- speech_recognition_engine (interface)
+    |      |      +-- sapi_engine
     |
     +-- [Future] VoiceLink.Browser
            +-- native_messaging_host
@@ -78,12 +79,16 @@ VoiceLink/
 ├── app_settings.h / .cpp
 ├── main_window.h / .cpp
 ├── app_settings.h / .cpp
-└── text_to_speech/
-    ├── tts_controller.h / .cpp
-    ├── tts_engine.h
-    ├── voicevox_engine.h / .cpp
-    ├── voicevox_process.h / .cpp
-    └── audio_player.h / .cpp
+├── text_to_speech/
+│   ├── tts_controller.h / .cpp
+│   ├── tts_engine.h
+│   ├── voicevox_engine.h / .cpp
+│   ├── voicevox_process.h / .cpp
+│   └── audio_player.h / .cpp
+└── speech_to_text/
+    ├── stt_controller.h / .cpp
+    ├── speech_recognition_engine.h
+    └── sapi_engine.h / .cpp
 ```
 
 TTS / Audio は現在アプリケーションプロジェクト内にあります。責務を分離したまま実装し、必要になった段階で静的ライブラリへ切り出します。
@@ -321,13 +326,17 @@ Audio Output Device
 
 ### 6.1 音声入力・音声認識
 
-将来の `VoiceLink.Speech` は、少なくとも以下の責務に分けます。
+音声認識は `VoiceLink.Speech` に分離し、認識エンジンを `speech_recognition_engine` インターフェース経由で利用します。エンジンの実装を差し替える場合、GUI と `stt_controller` は変更しません。
 
-- `audio_capture`: マイク入力の取得と録音状態の管理。
-- `speech_recognizer`: 音声データをテキストへ変換する。
-- 音声認識エンジン固有の通信・推論処理は、認識モジュール内に閉じ込める。
+- `stt_controller`: GUI 操作、認識スレッド、認識結果の UI 通知を管理する。
+- `speech_recognition_engine`: 音声認識エンジンの抽象インターフェース。
+- `sapi_engine`: Windows SAPI を利用し、既定のマイク入力からディクテーション認識を行う。
 
-録音制御と認識処理の API は、実際に採用する認識エンジンを決定した段階で設計します。
+SAPI は認識処理を専用スレッドで実行し、認識イベントを `PostMessageW` 経由で UI スレッドへ通知します。認識されたフレーズは既存のテキスト入力欄へ追記します。
+
+現在の初期実装は SAPI の既定認識エンジンと言語設定を利用します。日本語認識の可否は Windows に導入されている音声認識エンジン・言語コンポーネントに依存するため、実機で確認します。
+
+マイクの生データ取得や WASAPI による独自録音は、SAPI 以外の認識エンジンを追加する段階で必要性を判断します。SAPI は音声入力を内部で管理するため、現時点では別の `audio_capture` を設けません。
 
 ### 6.2 ChatGPT Web 連携
 
@@ -364,6 +373,8 @@ Audio Output Device
 | HTTP クライアント | **決定: WinHTTP** | Windows 標準 API を利用 |
 | JSON パーサー | **決定: Windows.Data.Json (C++/WinRT)** | Windows SDK の JSON API を利用 |
 | 音声再生 API | **初期実装: WinMM PlaySoundW** | WAV メモリ再生。高度な制御が必要になれば XAudio2 等を検討 |
+| 音声認識 API | **初期実装: SAPI** | Win32 アプリから利用できる COM API。既定マイク・既定認識エンジンを利用 |
+| 音声認識インターフェース | **決定: speech_recognition_engine** | 認識エンジン実装を差し替え可能にする |
 | TTS の戻り値形式 | `bool` + WAV バイト列 + エラー文字列 | `tts_engine` の共通インターフェースで統一 |
 | 話者・スタイル型 | `tts_engine::speaker_style` | 話者名、スタイル名、speaker ID を保持 |
 | 設定保存形式 | **決定: JSON (`%APPDATA%\\VoiceLink\\config.json`)** | VOICEVOX Engine の実行ファイルパスを `voicevox_path` に保存。空文字列は自動検索 |
@@ -379,7 +390,7 @@ Audio Output Device
 - 接続先は現在 `http://127.0.0.1:50021` 固定。`voicevox_process` が Engine の検索・起動・終了管理を行う。
 - GUI から `run.exe` のパスを指定でき、`%APPDATA%\\VoiceLink\\config.json` に保存する。
 - Text-to-Speech 関連ソースは `text_to_speech/` に配置し、アプリケーションプロジェクトに含めている。TTS / Audio の静的ライブラリ分離は後続作業とする。
-- Windows / MSVC でのビルド・実機接続テストは未確認。
+- SAPI を利用した音声認識インターフェースと初期実装を追加。Windows / MSVC でのビルド・日本語認識テストは未確認。
 
 ## 10. 更新ルール
 
