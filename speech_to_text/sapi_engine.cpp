@@ -131,13 +131,13 @@ bool sapi_engine::run(
         return false;
     }
 
-    result = grammar->DictationLoad(nullptr, SPLO_STATIC);
+    result = grammar->LoadDictation(nullptr, SPLO_STATIC);
     if (!set_error(result, L"ディクテーション文法を読み込めません。Windows に音声認識言語がインストールされているか確認してください", error))
     {
         return false;
     }
 
-    result = grammar->DictationSetState(SPRS_ACTIVE);
+    result = grammar->SetDictationState(SPRS_ACTIVE);
     if (!set_error(result, L"音声認識を開始できません", error))
     {
         return false;
@@ -223,7 +223,7 @@ bool sapi_engine::run(
 
     if (grammar)
     {
-        grammar->DictationSetState(SPRS_INACTIVE);
+        grammar->SetDictationState(SPRS_INACTIVE);
     }
 
     grammar.Reset();
