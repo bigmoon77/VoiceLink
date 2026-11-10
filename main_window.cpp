@@ -26,6 +26,7 @@ namespace
     constexpr int play_button_width = 100;
     constexpr int recognition_start_button_width = 130;
     constexpr int recognition_stop_button_width = 110;
+    constexpr int training_button_width = 90;
     constexpr int reconnect_button_width = 100;
     constexpr int volume_test_button_width = 110;
     constexpr int path_button_width = 80;
@@ -145,6 +146,15 @@ void main_window::set_recognition_stop_enabled(bool enabled)
     if (_recognition_stop_button)
     {
         EnableWindow(_recognition_stop_button, enabled);
+    }
+}
+
+void main_window::set_training_enabled(bool enabled)
+{
+    if (_training_button)
+    {
+        ShowWindow(_training_button, enabled ? SW_SHOW : SW_HIDE);
+        EnableWindow(_training_button, enabled);
     }
 }
 
@@ -281,6 +291,11 @@ void main_window::set_recognition_stop_callback(std::function<void()> callback)
     _recognition_stop_callback = std::move(callback);
 }
 
+void main_window::set_training_callback(std::function<void()> callback)
+{
+    _training_callback = std::move(callback);
+}
+
 void main_window::set_reconnect_callback(std::function<void()> callback)
 {
     _reconnect_callback = std::move(callback);
@@ -390,6 +405,13 @@ LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param
             if (HIWORD(w_param) == BN_CLICKED && _recognition_stop_callback)
             {
                 _recognition_stop_callback();
+            }
+            return 0;
+
+        case training_button_id:
+            if (HIWORD(w_param) == BN_CLICKED && _training_callback)
+            {
+                _training_callback();
             }
             return 0;
 
@@ -546,6 +568,14 @@ bool main_window::create_controls()
         _instance, nullptr
     );
 
+    _training_button = CreateWindowExW(
+        0, L"BUTTON", L"Training...",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(training_button_id)),
+        _instance, nullptr
+    );
+
     _play_button = CreateWindowExW(
         0, L"BUTTON", L"Play",
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
@@ -567,7 +597,7 @@ bool main_window::create_controls()
         _engine_path_apply_button && _speaker_label && _speaker_combo &&
         _reconnect_button && _text_label && _text_edit && _volume_label && _volume_slider &&
         _volume_test_button && _play_button && _status_text &&
-        _recognition_start_button && _recognition_stop_button;
+        _recognition_start_button && _recognition_stop_button && _training_button;
 
     if (!controls_created)
     {
@@ -592,6 +622,7 @@ bool main_window::create_controls()
     apply_control_font(_play_button);
     apply_control_font(_recognition_start_button);
     apply_control_font(_recognition_stop_button);
+    apply_control_font(_training_button);
     apply_control_font(_status_text);
 
     return true;
@@ -603,7 +634,7 @@ void main_window::layout_controls(int width, int height)
         !_engine_path_apply_button || !_speaker_label || !_speaker_combo || !_reconnect_button ||
         !_text_label || !_text_edit || !_volume_label || !_volume_slider ||
         !_volume_test_button || !_play_button || !_status_text ||
-        !_recognition_start_button || !_recognition_stop_button)
+        !_recognition_start_button || !_recognition_stop_button || !_training_button)
     {
         return;
     }
@@ -667,6 +698,14 @@ void main_window::layout_controls(int width, int height)
         TRUE
     );
     MoveWindow(
+        _training_button,
+        margin + recognition_start_button_width + margin + recognition_stop_button_width + margin,
+        buttons_y,
+        training_button_width,
+        control_height,
+        TRUE
+    );
+    MoveWindow(
         _play_button,
         width - margin - play_button_width,
         buttons_y,
@@ -674,7 +713,7 @@ void main_window::layout_controls(int width, int height)
         control_height,
         TRUE
     );
-    const int status_x = margin + recognition_start_button_width + margin + recognition_stop_button_width + margin;
+    const int status_x = margin + recognition_start_button_width + margin + recognition_stop_button_width + margin + training_button_width + margin;
     const int status_width = std::max(width - margin - play_button_width - margin - status_x, 80);
     MoveWindow(_status_text, status_x, status_y, status_width, label_height, TRUE);
 }
