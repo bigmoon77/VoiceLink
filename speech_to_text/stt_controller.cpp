@@ -1,6 +1,6 @@
 ﻿#include "stt_controller.h"
 
-#include "main_window.h"
+#include "../main_window.h"
 
 #include <utility>
 

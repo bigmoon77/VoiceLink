@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "audio_player.h"
-#include "main_window.h"
+#include "../main_window.h"
 #include "tts_engine.h"
 #include "voicevox_process.h"
 
