@@ -8,26 +8,42 @@
 VoiceLink は Windows 上で動作する音声入出力アプリケーションです。
 最終的には、グローバルホットキーで音声を入力し、認識テキストを ChatGPT の Web 入力欄へ渡す機能を提供します。
 
-初期開発では、音声合成を先行して実装します。
+初期開発では、VOICEVOX を利用した Text-to-Speech の変換・再生機能を先行して実装します。
 
-### 1.1 全体構成
+### 1.1 初期リリースの最低限の機能要件
+
+1. 入力したテキストを音声へ変換できる。
+2. 変換した音声を再生できる。
+3. GUI から VOICEVOX の話者・スタイルを選択できる。
+4. GUI から読み上げ対象のテキストを入力できる。
+
+初期 GUI は動作確認用のシンプルなウィンドウとします。
+
+- 話者選択 Drop-down: VOICEVOX Engine から取得した話者・スタイル一覧を表示する。
+- Debug 用 TextBox: 読み上げ対象のテキストを入力・編集する複数行テキストボックス。
+- 再生ボタン: 選択中の話者・スタイルと TextBox の内容で音声合成を実行し、生成音声を再生する。
+- 状態表示: Engine 未起動、話者一覧取得失敗、音声合成失敗、再生失敗などを確認できるようにする。
+
+話者一覧が取得できない場合、固定のダミー一覧で代用せず、接続エラーとして扱います。
+
+### 1.2 全体構成
 
 ```text
 VoiceLink (Application)
     |
+    +-- main_window (GUI)
+    |      +-- speaker_combo_box
+    |      +-- debug_text_box
+    |      +-- play_button
+    |      +-- status_text
+    |
     +-- VoiceLink.TTS
-    |      |
     |      +-- tts_engine (interface)
-    |      |      |
     |      |      +-- voicevox_engine
-    |      |
     |      +-- VOICEVOX Engine (HTTP / localhost)
     |
     +-- VoiceLink.Audio
-    |      |
     |      +-- audio_player
-    |
-    +-- VoiceLink.Common (必要になった段階で導入)
     |
     +-- [Future] VoiceLink.Speech
     |      +-- audio_capture
@@ -51,7 +67,9 @@ VoiceLink/
 ├── AGENTS.md
 ├── design.md
 ├── VoiceLink/                 # Windows アプリケーション (EXE)
-│   └── main.cpp
+│   ├── main.cpp
+│   ├── main_window.h
+│   └── main_window.cpp
 ├── VoiceLink.TTS/             # 音声合成ライブラリ (static LIB)
 │   ├── tts_engine.h
 │   ├── voicevox_engine.h
@@ -74,6 +92,7 @@ VOICEVOX Engine は別プロセスとして起動し、HTTP API で接続しま�
 
 **責務**
 - アプリケーションのエントリーポイント。
+- 初期 GUI の生成とイベント処理。
 - 設定の読み込みと保持。
 - 各モジュールの初期化・終了処理。
 - ユーザー操作に応じた各機能の呼び出し。
@@ -81,7 +100,24 @@ VOICEVOX Engine は別プロセスとして起動し、HTTP API で接続しま�
 
 アプリケーション本体に TTS エンジン固有の HTTP 処理や WAV 再生処理を実装しません。
 
-初期段階では、TTS と Audio のオブジェクトを生成し、テキスト合成から再生までを呼び出す最小構成とします。
+#### `main_window`
+
+初期 GUI を管理するクラスです。
+
+**表示要素**
+- `speaker_combo_box`: 話者・スタイル選択。
+- `debug_text_box`: 読み上げテキスト入力。
+- `play_button`: 合成・再生の開始。
+- `status_text`: Engine 接続状態や処理結果の表示。
+
+**主な処理**
+- 起動時に TTS Engine から話者・スタイル一覧を取得し、Drop-down に設定する。
+- 選択中の話者 ID を保持する。
+- 再生ボタン押下時に TextBox の内容と話者 ID を取得する。
+- TTS へ合成を依頼し、成功した WAV データを Audio へ渡す。
+- 処理結果やエラーを状態表示へ反映する。
+
+GUI のイベントハンドラーに HTTP 通信や WAV 再生の詳細を直接実装しません。処理は各モジュールへ委譲します。
 
 ### 3.2 VoiceLink.TTS
 
@@ -119,8 +155,8 @@ public:
 };
 ```
 
-これは初期の最小案です。実装時には、初期化・合成失敗の詳細を呼び出し元へ伝える戻り値形式を検討します。
-話者 ID の型や話者情報の共通データ型も、VOICEVOX 固有の JSON 構造が他モジュールへ漏れないように定義します。
+実装時には、初期化・合成失敗の詳細を呼び出し元へ伝える戻り値形式を検討します。
+また、話者一覧取得 API と共通の話者・スタイルデータ型を追加します。VOICEVOX 固有の JSON 構造をアプリケーション本体へ直接公開しない方針です。
 
 #### `voicevox_engine`
 
@@ -181,19 +217,42 @@ Audio モジュールは TTS モジュールへ依存しません。WAV デー�
 
 ## 4. 初期データフロー
 
-### 4.1 テキスト読み上げ
+### 4.1 起動・話者一覧取得
+
+```text
+main_window
+ |
+ | initialize / get_speakers
+ v
+voicevox_engine
+ |
+ | GET /speakers
+ v
+VOICEVOX Engine
+ |
+ | speaker/style list
+ v
+voicevox_engine
+ |
+ | common speaker/style data
+ v
+main_window
+ |
+ | populate
+ v
+speaker_combo_box
+```
+
+### 4.2 テキスト読み上げ
 
 ```text
 User
  |
- | text + speaker_id
+ | select speaker + enter text + click Play
  v
-VoiceLink
+main_window
  |
  | synthesize(text, speaker_id)
- v
-tts_engine
- |
  v
 voicevox_engine
  |
@@ -208,7 +267,7 @@ voicevox_engine
  |
  | WAV bytes
  v
-VoiceLink
+main_window
  |
  | play(wav_data)
  v
@@ -218,37 +277,12 @@ audio_player
 Audio Output Device
 ```
 
-### 4.2 話者一覧取得
-
-```text
-VoiceLink
- |
- | get_speakers()
- v
-voicevox_engine
- |
- | GET /speakers
- v
-VOICEVOX Engine
- |
- | JSON response
- v
-voicevox_engine
- |
- | common speaker/style data
- v
-VoiceLink
-```
-
-話者一覧の取得 API は、初期インターフェースに必要になった時点で追加します。
-VOICEVOX の JSON レスポンス型をアプリケーション本体へ直接公開しない方針です。
-
 ## 5. 依存関係のルール
 
 | 呼び出し元 | 依存先 | 方針 |
 |---|---|---|
-| VoiceLink | VoiceLink.TTS | 抽象インターフェース経由で利用する |
-| VoiceLink | VoiceLink.Audio | 音声データを渡して再生を依頼する |
+| VoiceLink / main_window | VoiceLink.TTS | 抽象インターフェース経由で利用する |
+| VoiceLink / main_window | VoiceLink.Audio | 音声データを渡して再生を依頼する |
 | VoiceLink.TTS | HTTP クライアント / JSON ライブラリ | VOICEVOX 通信の内部実装として利用する |
 | VoiceLink.Audio | 再生バックエンド | Audio 内部に閉じ込める |
 | VoiceLink.Audio | VoiceLink.TTS | 依存させない |
@@ -298,6 +332,7 @@ VOICEVOX の JSON レスポンス型をアプリケーション本体へ直接�
 
 | 項目 | 現状 | 決定時の観点 |
 |---|---|---|
+| GUI フレームワーク | 未選定 | Windows 標準コントロールか Dear ImGui か。初期 UI の簡潔さと依存関係 |
 | C++ 言語標準 | 未確定 | 利用するコンパイラ・依存ライブラリとの互換性 |
 | HTTP クライアント | 未選定 | 導入コスト、同期/非同期、タイムアウト、ライセンス |
 | JSON ライブラリ | 未選定 | UTF-8 対応、保守性、ライセンス |
