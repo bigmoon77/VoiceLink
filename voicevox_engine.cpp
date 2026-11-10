@@ -1,4 +1,4 @@
-#include "voicevox_engine.h"
+﻿#include "voicevox_engine.h"
 
 #include <winrt/Windows.Data.Json.h>
 #include <winrt/base.h>
@@ -182,6 +182,7 @@ bool voicevox_engine::initialize(
         );
 
         std::vector<tts_engine::speaker_style> result;
+        
         for (const auto& speaker_value : json_array)
         {
             const auto speaker = speaker_value.GetObject();
