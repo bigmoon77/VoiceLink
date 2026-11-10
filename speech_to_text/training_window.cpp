@@ -1,6 +1,7 @@
 ﻿#include "training_window.h"
 
 #include <algorithm>
+#include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -184,6 +185,7 @@ bool training_window::create_controls()
     apply_font(_adaptation_button);
     apply_font(_close_button);
     apply_font(_status_text);
+    load_training_history();
     refresh_records();
     return true;
 }
@@ -216,6 +218,50 @@ void training_window::refresh_records()
         std::wstring label = record.text;
         if (label.size() > 90) { label.resize(90); label += L"..."; }
         SendMessageW(_record_list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str()));
+    }
+}
+
+void training_window::load_training_history()
+{
+    wchar_t app_data[MAX_PATH]{};
+    const DWORD path_length = GetEnvironmentVariableW(L"APPDATA", app_data, MAX_PATH);
+    if (path_length == 0 || path_length >= MAX_PATH) return;
+
+    const std::wstring file_path = std::wstring(app_data) + L"\\VoiceLink\\sapi_training.txt";
+    std::ifstream file(file_path, std::ios::binary);
+    if (!file) return;
+
+    std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    if (data.size() >= 3 && static_cast<unsigned char>(data[0]) == 0xEF &&
+        static_cast<unsigned char>(data[1]) == 0xBB && static_cast<unsigned char>(data[2]) == 0xBF)
+    {
+        data.erase(0, 3);
+    }
+
+    size_t offset = 0;
+    while (offset < data.size())
+    {
+        const size_t line_end = data.find('\n', offset);
+        const size_t count = (line_end == std::string::npos ? data.size() : line_end) - offset;
+        std::string line = data.substr(offset, count);
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (!line.empty())
+        {
+            const int wide_count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, line.data(), static_cast<int>(line.size()), nullptr, 0);
+            if (wide_count > 0)
+            {
+                std::wstring wide_text(static_cast<size_t>(wide_count), L'\0');
+                if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, line.data(), static_cast<int>(line.size()), wide_text.data(), wide_count) == wide_count)
+                {
+                    speech_recognition_result record;
+                    record.text = std::move(wide_text);
+                    _records.push_back(std::move(record));
+                    if (_records.size() > 100) _records.erase(_records.begin());
+                }
+            }
+        }
+        if (line_end == std::string::npos) break;
+        offset = line_end + 1;
     }
 }
 
