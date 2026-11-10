@@ -1,6 +1,6 @@
 ﻿#include "app_settings.h"
 #include "main_window.h"
-#include "tts_controller.h"
+#include "text_to_speech/tts_controller.h"
 
 #include <winrt/base.h>
 

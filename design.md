@@ -65,7 +65,7 @@ Chrome Extension
 
 ## 2. プロジェクト構成案
 
-現在は単一の Visual Studio アプリケーションプロジェクトに以下のソースを配置しています。TTS / Audio の静的ライブラリ分離は、必要になった段階で行います。
+現在は単一の Visual Studio アプリケーションプロジェクトです。Text-to-Speech 関連のソースを `text_to_speech/` にまとめ、アプリケーション共通の GUI・設定・エントリーポイントと分離しています。TTS / Audio の静的ライブラリ分離は、必要になった段階で行います。
 
 ```text
 VoiceLink/
@@ -77,10 +77,13 @@ VoiceLink/
 ├── main.cpp
 ├── app_settings.h / .cpp
 ├── main_window.h / .cpp
-├── tts_controller.h / .cpp
-├── tts_engine.h
-├── voicevox_engine.h / .cpp
-└── audio_player.h / .cpp
+├── app_settings.h / .cpp
+└── text_to_speech/
+    ├── tts_controller.h / .cpp
+    ├── tts_engine.h
+    ├── voicevox_engine.h / .cpp
+    ├── voicevox_process.h / .cpp
+    └── audio_player.h / .cpp
 ```
 
 TTS / Audio は現在アプリケーションプロジェクト内にあります。責務を分離したまま実装し、必要になった段階で静的ライブラリへ切り出します。
@@ -128,7 +131,7 @@ HTTP 通信や WAV 再生の詳細は扱わず、`tts_controller` へ委譲し�
 
 #### `tts_controller`
 
-GUI と TTS / Audio の間を仲介するクラスです。現在はアプリケーションプロジェクト内に配置しています。
+GUI と TTS / Audio の間を仲介するクラスです。実装ファイルは `text_to_speech/` に配置しています。
 
 **責務**
 - 起動時に VOICEVOX Engine へ接続し、話者・スタイル一覧を取得する。
@@ -375,7 +378,7 @@ Audio Output Device
 - `audio_player` が WAV をメモリから非同期再生する。
 - 接続先は現在 `http://127.0.0.1:50021` 固定。`voicevox_process` が Engine の検索・起動・終了管理を行う。
 - GUI から `run.exe` のパスを指定でき、`%APPDATA%\\VoiceLink\\config.json` に保存する。
-- 各ソースはアプリケーションプロジェクトに含めている。TTS / Audio の静的ライブラリ分離は後続作業とする。
+- Text-to-Speech 関連ソースは `text_to_speech/` に配置し、アプリケーションプロジェクトに含めている。TTS / Audio の静的ライブラリ分離は後続作業とする。
 - Windows / MSVC でのビルド・実機接続テストは未確認。
 
 ## 10. 更新ルール

@@ -9,6 +9,9 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
+    <Filter Include="Text to Speech">
+      <UniqueIdentifier>{A7D51A43-2F63-4C19-8E79-51B9B6C6E7A1}</UniqueIdentifier>
+    </Filter>
     <Filter Include="リソース ファイル">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
@@ -24,17 +27,17 @@
     <ClCompile Include="main_window.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="voicevox_engine.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="text_to_speech\voicevox_engine.cpp">
+      <Filter>Text to Speech</Filter>
     </ClCompile>
-    <ClCompile Include="audio_player.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="text_to_speech\audio_player.cpp">
+      <Filter>Text to Speech</Filter>
     </ClCompile>
-    <ClCompile Include="tts_controller.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="text_to_speech\tts_controller.cpp">
+      <Filter>Text to Speech</Filter>
     </ClCompile>
-    <ClCompile Include="voicevox_process.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="text_to_speech\voicevox_process.cpp">
+      <Filter>Text to Speech</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -44,20 +47,20 @@
     <ClInclude Include="app_settings.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="voicevox_engine.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="text_to_speech\voicevox_engine.h">
+      <Filter>Text to Speech</Filter>
     </ClInclude>
-    <ClInclude Include="audio_player.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="text_to_speech\audio_player.h">
+      <Filter>Text to Speech</Filter>
     </ClInclude>
-    <ClInclude Include="tts_controller.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="text_to_speech\tts_controller.h">
+      <Filter>Text to Speech</Filter>
     </ClInclude>
-    <ClInclude Include="tts_engine.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="text_to_speech\tts_engine.h">
+      <Filter>Text to Speech</Filter>
     </ClInclude>
-    <ClInclude Include="voicevox_process.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="text_to_speech\voicevox_process.h">
+      <Filter>Text to Speech</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
