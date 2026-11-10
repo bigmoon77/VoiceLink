@@ -143,6 +143,7 @@
     <ClInclude Include="voicevox_engine.h" />
     <ClInclude Include="audio_player.h" />
     <ClInclude Include="tts_controller.h" />
+    <ClInclude Include="tts_engine.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
