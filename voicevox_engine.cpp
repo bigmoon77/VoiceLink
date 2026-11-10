@@ -3,7 +3,6 @@
 #include <winrt/Windows.Data.Json.h>
 #include <winrt/base.h>
 
-#include <algorithm>
 #include <stdexcept>
 #include <utility>
 #include <string>
