@@ -37,6 +37,7 @@ tts_controller::tts_controller(main_window& window, audio_player& player)
 
     _window.set_play_enabled(false);
     _window.set_reconnect_enabled(true);
+    _window.set_voicevox_path_enabled(true);
 }
 
 tts_controller::~tts_controller()
@@ -70,6 +71,7 @@ void tts_controller::initialize_async()
     _initialized = false;
     _window.set_play_enabled(false);
     _window.set_reconnect_enabled(false);
+    _window.set_voicevox_path_enabled(false);
     _window.set_status(L"VOICEVOX Engine に接続しています...");
 
     const std::wstring engine_path = _voicevox_path;
@@ -212,6 +214,7 @@ bool tts_controller::handle_window_message(UINT message, WPARAM, LPARAM)
         }
         _busy = false;
         _window.set_reconnect_enabled(true);
+        _window.set_voicevox_path_enabled(true);
 
         if (!result.error.empty())
         {
