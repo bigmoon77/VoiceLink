@@ -215,7 +215,7 @@ bool main_window::create_controls()
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         0, 0, 0, 0,
         _window,
-        reinterpret_cast<HMENU>(speaker_label_id),
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(speaker_label_id)),
         _instance,
         nullptr
     );
@@ -227,7 +227,7 @@ bool main_window::create_controls()
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
         0, 0, 0, 0,
         _window,
-        reinterpret_cast<HMENU>(speaker_combo_id),
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(speaker_combo_id)),
         _instance,
         nullptr
     );
@@ -239,7 +239,7 @@ bool main_window::create_controls()
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         0, 0, 0, 0,
         _window,
-        reinterpret_cast<HMENU>(text_label_id),
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(text_label_id)),
         _instance,
         nullptr
     );
@@ -252,7 +252,7 @@ bool main_window::create_controls()
             ES_AUTOVSCROLL | ES_WANTRETURN | WS_VSCROLL,
         0, 0, 0, 0,
         _window,
-        reinterpret_cast<HMENU>(text_edit_id),
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(text_edit_id)),
         _instance,
         nullptr
     );
@@ -264,7 +264,7 @@ bool main_window::create_controls()
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
         0, 0, 0, 0,
         _window,
-        reinterpret_cast<HMENU>(play_button_id),
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(play_button_id)),
         _instance,
         nullptr
     );
@@ -276,7 +276,7 @@ bool main_window::create_controls()
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         0, 0, 0, 0,
         _window,
-        reinterpret_cast<HMENU>(status_text_id),
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(status_text_id)),
         _instance,
         nullptr
     );
