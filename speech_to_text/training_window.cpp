@@ -573,7 +573,7 @@ void training_window::submit_all_samples_for_adaptation()
 
     std::vector<std::wstring> texts;
     texts.reserve(_samples.size());
-    for (const training_sample& sample : _samples)
+    for (training_sample& sample : _samples)
     {
         std::vector<std::uint8_t> wav_data;
         if (!read_file(sample.wav_path, wav_data) || wav_data.size() < 44 ||
@@ -583,12 +583,23 @@ void training_window::submit_all_samples_for_adaptation()
             set_status(L"WAV ファイルを読み込めない、または WAV 形式ではないサンプルがあります。");
             return;
         }
-        if (sample.text.empty() || sample.text.size() > 512)
+
+        const std::size_t extension = sample.wav_path.rfind(L".wav");
+        if (extension == std::wstring::npos)
         {
-            set_status(L"TXT が空、または512文字を超えるサンプルがあります。対象テキストを修正してください。");
+            set_status(L"WAV ファイル名が不正です。");
             return;
         }
-        texts.push_back(sample.text);
+        const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
+        std::wstring text;
+        if (!read_utf8_text(text_path, text) || text.empty() || text.size() > 512)
+        {
+            set_status(L"TXT を読み込めない、空、または512文字を超えるサンプルがあります。");
+            return;
+        }
+
+        sample.text = text;
+        texts.push_back(std::move(text));
     }
 
     if (_batch_adaptation_callback(texts, static_cast<std::size_t>(repetitions)))
