@@ -55,6 +55,11 @@ tts_controller::~tts_controller()
     _player.stop();
 }
 
+void tts_controller::set_voicevox_path(const std::wstring& path)
+{
+    _voicevox_path = path;
+}
+
 void tts_controller::initialize_async()
 {
     if (_busy.exchange(true))
@@ -75,7 +80,7 @@ void tts_controller::initialize_async()
 
         try
         {
-            if (!_voicevox_process.start(result.error))
+            if (!_voicevox_process.start(_voicevox_path, result.error))
             {
                 // Keep the connection failure in the normal initialization result.
             }
