@@ -33,6 +33,7 @@ public:
     ) override;
     bool select_alternate(std::uint64_t result_id, std::size_t alternate_index) override;
     bool submit_adaptation_data(const std::wstring& text) override;
+    bool submit_adaptation_batch(const std::vector<std::wstring>& texts, std::size_t repetitions) override;
 
 private:
     enum class command_type
@@ -46,7 +47,8 @@ private:
         command_type type = command_type::adaptation_data;
         std::uint64_t result_id = 0;
         std::size_t alternate_index = 0;
-        std::wstring text;
+        std::vector<std::wstring> texts;
+        std::size_t repetitions = 1;
     };
 
     void enqueue_command(const command& value);
