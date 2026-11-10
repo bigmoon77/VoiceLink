@@ -63,31 +63,21 @@ Chrome Extension
 
 ## 2. プロジェクト構成案
 
-初期段階では、Visual Studio のソリューション内に以下のプロジェクトを配置します。
+現在は単一の Visual Studio アプリケーションプロジェクトに以下のソースを配置しています。TTS / Audio の静的ライブラリ分離は、必要になった段階で行います。
 
 ```text
 VoiceLink/
 ├── VoiceLink.sln
+├── VoiceLink.vcxproj
+├── VoiceLink.vcxproj.filters
 ├── AGENTS.md
 ├── design.md
-├── main.cpp                   # Windows GUI entry point
-├── main_window.h               # Win32 main window interface
-├── main_window.cpp             # Win32 main window implementation
-├── tts_controller.h/.cpp       # GUI / TTS / audio mediation
-├── tts_engine.h                # TTS engine interface
-├── voicevox_engine.h/.cpp      # VOICEVOX HTTP client
-├── audio_player.h/.cpp         # WAV playback
-├── VoiceLink.TTS/             # 音声合成ライブラリ (static LIB)
-│   ├── tts_engine.h
-│   ├── voicevox_engine.h
-│   └── voicevox_engine.cpp
-├── VoiceLink.Audio/           # 音声再生ライブラリ (static LIB)
-│   ├── audio_player.h
-│   └── audio_player.cpp
-├── VoiceLink.Common/          # 共通型・ユーティリティ (必要になった段階で追加)
-├── VoiceLink.Speech/          # 音声入力・認識 (将来)
-├── VoiceLink.Browser/         # Native Messaging Host (将来)
-└── ChromeExtension/           # Chrome 拡張機能 (将来)
+├── main.cpp
+├── main_window.h / .cpp
+├── tts_controller.h / .cpp
+├── tts_engine.h
+├── voicevox_engine.h / .cpp
+└── audio_player.h / .cpp
 ```
 
 各ライブラリは、独立した配布・動的ロードが必要になるまでは静的ライブラリとして扱います。
@@ -362,8 +352,8 @@ Audio Output Device
 | HTTP クライアント | **決定: WinHTTP** | Windows 標準 API を利用 |
 | JSON パーサー | **決定: Windows.Data.Json (C++/WinRT)** | Windows SDK の JSON API を利用 |
 | 音声再生 API | **初期実装: WinMM PlaySoundW** | WAV メモリ再生。高度な制御が必要になれば XAudio2 等を検討 |
-| TTS の戻り値形式 | 初期案は WAV バイト列 | エラー詳細と結果データの表現 |
-| 話者・スタイル型 | 未確定 | 複数スタイル、表示名、ID の扱い |
+| TTS の戻り値形式 | `bool` + WAV バイト列 + エラー文字列 | `tts_engine` の共通インターフェースで統一 |
+| 話者・スタイル型 | `tts_engine::speaker_style` | 話者名、スタイル名、speaker ID を保持 |
 | 設定保存形式 | 未確定 | 接続先、話者 ID、音量などの保存 |
 | VOICEVOX Engine の管理 | 初期は手動起動 | 将来の起動検出・自動起動・終了管理 |
 
