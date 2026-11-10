@@ -72,7 +72,9 @@ void tts_controller::initialize_async()
     _window.set_reconnect_enabled(false);
     _window.set_status(L"VOICEVOX Engine に接続しています...");
 
-    start_worker([this]()
+    const std::wstring engine_path = _voicevox_path;
+
+    start_worker([this, engine_path]()
     {
         speakers_result result;
         std::vector<tts_engine::speaker_style> engine_speakers;
@@ -80,7 +82,7 @@ void tts_controller::initialize_async()
 
         try
         {
-            if (!_voicevox_process.start(_voicevox_path, result.error))
+            if (!_voicevox_process.start(engine_path, result.error))
             {
                 // Keep the connection failure in the normal initialization result.
             }
