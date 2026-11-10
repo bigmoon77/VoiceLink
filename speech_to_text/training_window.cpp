@@ -7,15 +7,22 @@
 #include <utility>
 #include <vector>
 
+#pragma comment(lib, "winmm.lib")
+
 constexpr wchar_t training_window::_window_class_name[];
 
 namespace
 {
-    constexpr int window_width = 680;
-    constexpr int window_height = 460;
+    constexpr int window_width = 760;
+    constexpr int window_height = 760;
     constexpr int margin = 12;
     constexpr int control_height = 26;
     constexpr int label_height = 20;
+
+    bool is_utf8_bom(const std::vector<std::uint8_t>& data)
+    {
+        return data.size() >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF;
+    }
 }
 
 training_window::training_window(HWND parent)
@@ -25,6 +32,13 @@ training_window::training_window(HWND parent)
 
 training_window::~training_window()
 {
+    _audio_player.stop();
+    if (_recorder.is_recording())
+    {
+        std::vector<std::uint8_t> ignored;
+        std::wstring error;
+        _recorder.stop(ignored, error);
+    }
     if (_window)
     {
         DestroyWindow(_window);
@@ -120,15 +134,19 @@ LRESULT training_window::handle_message(UINT message, WPARAM w_param, LPARAM l_p
         case record_list_id:
             if (HIWORD(w_param) == LBN_SELCHANGE) refresh_selected_record();
             return 0;
+        case sample_list_id:
+            if (HIWORD(w_param) == LBN_SELCHANGE) select_training_sample();
+            return 0;
         case candidate_combo_id:
             if (HIWORD(w_param) == CBN_SELCHANGE)
             {
                 const LRESULT record_index = SendMessageW(_record_list, LB_GETCURSEL, 0, 0);
                 const LRESULT candidate_index = SendMessageW(_candidate_combo, CB_GETCURSEL, 0, 0);
-                if (record_index != LB_ERR && candidate_index != CB_ERR)
+                if (record_index != LB_ERR && candidate_index != CB_ERR &&
+                    static_cast<std::size_t>(record_index) < _records.size())
                 {
-                    const speech_recognition_result& record = _records[static_cast<size_t>(record_index)];
-                    const std::wstring& candidate = candidate_index == 0 ? record.text : record.alternatives[static_cast<size_t>(candidate_index - 1)];
+                    const speech_recognition_result& record = _records[static_cast<std::size_t>(record_index)];
+                    const std::wstring& candidate = candidate_index == 0 ? record.text : record.alternatives[static_cast<std::size_t>(candidate_index - 1)];
                     SetWindowTextW(_correction_edit, candidate.c_str());
                 }
             }
@@ -138,10 +156,11 @@ LRESULT training_window::handle_message(UINT message, WPARAM w_param, LPARAM l_p
             {
                 const LRESULT record_index = SendMessageW(_record_list, LB_GETCURSEL, 0, 0);
                 const LRESULT candidate_index = SendMessageW(_candidate_combo, CB_GETCURSEL, 0, 0);
-                if (record_index != LB_ERR && candidate_index > 0)
+                if (record_index != LB_ERR && candidate_index > 0 &&
+                    static_cast<std::size_t>(record_index) < _records.size())
                 {
-                    const speech_recognition_result& record = _records[static_cast<size_t>(record_index)];
-                    _alternate_callback(record.id, static_cast<size_t>(candidate_index - 1));
+                    const speech_recognition_result& record = _records[static_cast<std::size_t>(record_index)];
+                    _alternate_callback(record.id, static_cast<std::size_t>(candidate_index - 1));
                 }
                 else set_status(L"確定する代替候補を選択してください。");
             }
@@ -160,6 +179,19 @@ LRESULT training_window::handle_message(UINT message, WPARAM w_param, LPARAM l_p
                     _adaptation_callback(text);
                 }
             }
+            return 0;
+        case capture_button_id:
+            if (HIWORD(w_param) == BN_CLICKED)
+            {
+                if (_recorder.is_recording()) stop_recording();
+                else start_recording();
+            }
+            return 0;
+        case sample_play_button_id:
+            if (HIWORD(w_param) == BN_CLICKED) play_selected_sample();
+            return 0;
+        case sample_save_button_id:
+            if (HIWORD(w_param) == BN_CLICKED) save_recorded_sample();
             return 0;
         case close_button_id:
             if (HIWORD(w_param) == BN_CLICKED) ShowWindow(_window, SW_HIDE);
@@ -180,13 +212,24 @@ bool training_window::create_controls()
     _record_list = CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(record_list_id)), instance, nullptr);
     _candidate_label = CreateWindowExW(0, L"STATIC", L"認識候補", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(candidate_label_id)), instance, nullptr);
     _candidate_combo = CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(candidate_combo_id)), instance, nullptr);
-    _correction_label = CreateWindowExW(0, L"STATIC", L"訂正後の文章", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(correction_label_id)), instance, nullptr);
+    _correction_label = CreateWindowExW(0, L"STATIC", L"正解テキスト / 訂正後の文章", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(correction_label_id)), instance, nullptr);
     _correction_edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(correction_edit_id)), instance, nullptr);
     _commit_button = CreateWindowExW(0, L"BUTTON", L"候補を確定", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(commit_button_id)), instance, nullptr);
     _adaptation_button = CreateWindowExW(0, L"BUTTON", L"訂正内容を学習", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(adaptation_button_id)), instance, nullptr);
     _close_button = CreateWindowExW(0, L"BUTTON", L"閉じる", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(close_button_id)), instance, nullptr);
-    _status_text = CreateWindowExW(0, L"STATIC", L"認識結果を選択して訂正できます。", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(status_text_id)), instance, nullptr);
-    if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label || !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text) return false;
+    _status_text = CreateWindowExW(0, L"STATIC", L"認識結果を選択して訂正できます。録音した音声はサンプルとして保存できます。", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(status_text_id)), instance, nullptr);
+    _sample_label = CreateWindowExW(0, L"STATIC", L"録音・音声サンプル", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_label_id)), instance, nullptr);
+    _sample_list = CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_list_id)), instance, nullptr);
+    _capture_button = CreateWindowExW(0, L"BUTTON", L"録音開始", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(capture_button_id)), instance, nullptr);
+    _sample_play_button = CreateWindowExW(0, L"BUTTON", L"選択音声を再生", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_play_button_id)), instance, nullptr);
+    _sample_save_button = CreateWindowExW(0, L"BUTTON", L"録音を保存", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 0, 0, 0, _window, reinterpret_cast<HMENU>(static_cast<INT_PTR>(sample_save_button_id)), instance, nullptr);
+
+    if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label ||
+        !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text ||
+        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button)
+    {
+        return false;
+    }
 
     apply_font(_record_label);
     apply_font(_record_list);
@@ -198,23 +241,42 @@ bool training_window::create_controls()
     apply_font(_adaptation_button);
     apply_font(_close_button);
     apply_font(_status_text);
+    apply_font(_sample_label);
+    apply_font(_sample_list);
+    apply_font(_capture_button);
+    apply_font(_sample_play_button);
+    apply_font(_sample_save_button);
+
     load_training_history();
     refresh_records();
+    load_training_samples();
+    refresh_sample_list();
     return true;
 }
 
 void training_window::layout_controls(int width, int height)
 {
-    if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label || !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text) return;
+    if (!_record_label || !_record_list || !_candidate_label || !_candidate_combo || !_correction_label ||
+        !_correction_edit || !_commit_button || !_adaptation_button || !_close_button || !_status_text ||
+        !_sample_label || !_sample_list || !_capture_button || !_sample_play_button || !_sample_save_button)
+    {
+        return;
+    }
+
     const int content_width = (std::max)(width - margin * 2, 120);
     const int list_label_y = margin;
     const int list_y = list_label_y + label_height;
-    const int list_height = (std::max)(height / 2 - label_height, 80);
+    const int list_height = (std::max)(height / 4, 100);
     const int candidate_y = list_y + list_height + margin;
     const int correction_y = candidate_y + label_height + control_height + margin;
     const int buttons_y = correction_y + label_height + control_height + margin;
     const int status_y = buttons_y + control_height + margin;
-    const int button_width = 120;
+    const int sample_label_y = status_y + label_height + margin;
+    const int sample_list_y = sample_label_y + label_height;
+    const int sample_list_height = (std::max)(height - sample_list_y - 3 * control_height - 5 * margin - label_height, 80);
+    const int sample_buttons_y = sample_list_y + sample_list_height + margin;
+    const int button_width = 130;
+
     MoveWindow(_record_label, margin, list_label_y, content_width, label_height, TRUE);
     MoveWindow(_record_list, margin, list_y, content_width, list_height, TRUE);
     MoveWindow(_candidate_label, margin, candidate_y, content_width, label_height, TRUE);
@@ -225,6 +287,11 @@ void training_window::layout_controls(int width, int height)
     MoveWindow(_adaptation_button, margin + button_width + margin, buttons_y, button_width + 30, control_height, TRUE);
     MoveWindow(_close_button, width - margin - button_width, buttons_y, button_width, control_height, TRUE);
     MoveWindow(_status_text, margin, status_y, content_width, label_height, TRUE);
+    MoveWindow(_sample_label, margin, sample_label_y, content_width, label_height, TRUE);
+    MoveWindow(_sample_list, margin, sample_list_y, content_width, sample_list_height, TRUE);
+    MoveWindow(_capture_button, margin, sample_buttons_y, button_width, control_height, TRUE);
+    MoveWindow(_sample_play_button, margin + button_width + margin, sample_buttons_y, button_width + 20, control_height, TRUE);
+    MoveWindow(_sample_save_button, margin + (button_width + margin) * 2 + 20, sample_buttons_y, button_width, control_height, TRUE);
 }
 
 void training_window::refresh_records()
@@ -286,22 +353,177 @@ void training_window::load_training_history()
 void training_window::refresh_selected_record()
 {
     const LRESULT selected = SendMessageW(_record_list, LB_GETCURSEL, 0, 0);
-    if (selected == LB_ERR || static_cast<size_t>(selected) >= _records.size()) return;
-    const speech_recognition_result& record = _records[static_cast<size_t>(selected)];
+    if (selected == LB_ERR || static_cast<std::size_t>(selected) >= _records.size()) return;
+    const speech_recognition_result& record = _records[static_cast<std::size_t>(selected)];
     SendMessageW(_candidate_combo, CB_RESETCONTENT, 0, 0);
     SendMessageW(_candidate_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(record.text.c_str()));
-    for (const std::wstring& alternative : record.alternatives) SendMessageW(_candidate_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(alternative.c_str()));
+    for (const std::wstring& alternative : record.alternatives)
+    {
+        SendMessageW(_candidate_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(alternative.c_str()));
+    }
     SendMessageW(_candidate_combo, CB_SETCURSEL, 0, 0);
     SetWindowTextW(_correction_edit, record.text.c_str());
+}
+
+void training_window::load_training_samples()
+{
+    std::wstring directory;
+    if (!get_sample_directory(directory, true)) return;
+
+    const std::wstring search_path = directory + L"\\*.wav";
+    WIN32_FIND_DATAW find_data{};
+    HANDLE find_handle = FindFirstFileW(search_path.c_str(), &find_data);
+    if (find_handle == INVALID_HANDLE_VALUE) return;
+
+    do
+    {
+        if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) continue;
+        training_sample sample;
+        sample.wav_path = directory + L"\\" + find_data.cFileName;
+        const std::size_t extension = sample.wav_path.rfind(L".wav");
+        if (extension == std::wstring::npos) continue;
+        const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
+        if (!read_utf8_text(text_path, sample.text)) continue;
+        _samples.push_back(std::move(sample));
+    } while (FindNextFileW(find_handle, &find_data));
+    FindClose(find_handle);
+}
+
+void training_window::refresh_sample_list()
+{
+    if (!_sample_list) return;
+    SendMessageW(_sample_list, LB_RESETCONTENT, 0, 0);
+    for (const training_sample& sample : _samples)
+    {
+        const std::size_t slash = sample.wav_path.find_last_of(L"\\/");
+        const std::wstring label = slash == std::wstring::npos ? sample.wav_path : sample.wav_path.substr(slash + 1);
+        SendMessageW(_sample_list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str()));
+    }
+}
+
+void training_window::select_training_sample()
+{
+    const LRESULT selected = SendMessageW(_sample_list, LB_GETCURSEL, 0, 0);
+    if (selected == LB_ERR || static_cast<std::size_t>(selected) >= _samples.size()) return;
+
+    const training_sample& sample = _samples[static_cast<std::size_t>(selected)];
+    std::vector<std::uint8_t> audio_data;
+    if (!read_file(sample.wav_path, audio_data) || audio_data.size() < 44)
+    {
+        set_status(L"選択した音声サンプルを読み込めませんでした。");
+        return;
+    }
+
+    _selected_audio = std::move(audio_data);
+    SetWindowTextW(_correction_edit, sample.text.c_str());
+    set_status(L"サンプルを読み込みました。音声を再生して正解テキストを確認できます。");
+}
+
+void training_window::start_recording()
+{
+    std::wstring error;
+    _audio_player.stop();
+    _recorded_audio.clear();
+    _selected_audio.clear();
+    if (!_recorder.start(error))
+    {
+        set_status(error);
+        return;
+    }
+    SetWindowTextW(_capture_button, L"録音停止");
+    set_status(L"録音中です。発話が終わったら録音停止を押してください。");
+}
+
+void training_window::stop_recording()
+{
+    std::vector<std::uint8_t> wav_data;
+    std::wstring error;
+    if (!_recorder.stop(wav_data, error))
+    {
+        SetWindowTextW(_capture_button, L"録音開始");
+        set_status(error);
+        return;
+    }
+    _recorded_audio = wav_data;
+    _selected_audio = std::move(wav_data);
+    SetWindowTextW(_capture_button, L"録音開始");
+    set_status(L"録音を取得しました。正解テキストを入力して「録音を保存」を押してください。");
+}
+
+void training_window::play_selected_sample()
+{
+    if (_selected_audio.empty())
+    {
+        set_status(L"再生する音声がありません。録音するか、サンプル一覧から選択してください。");
+        return;
+    }
+    if (!_audio_player.play(_selected_audio))
+    {
+        set_status(L"音声を再生できませんでした。WAV データを確認してください。");
+        return;
+    }
+    set_status(L"音声を再生しています。");
+}
+
+void training_window::save_recorded_sample()
+{
+    if (_recorder.is_recording())
+    {
+        set_status(L"先に録音を停止してください。");
+        return;
+    }
+    if (_recorded_audio.empty())
+    {
+        set_status(L"保存する録音データがありません。先に録音してください。");
+        return;
+    }
+
+    const std::wstring text = get_correction_text();
+    if (text.empty())
+    {
+        set_status(L"正解テキストを入力してください。");
+        return;
+    }
+
+    std::wstring directory;
+    if (!get_sample_directory(directory, true))
+    {
+        set_status(L"サンプル保存先フォルダーを作成できませんでした。");
+        return;
+    }
+
+    const std::wstring base_name = create_sample_base_name(directory);
+    const std::wstring wav_path = directory + L"\\" + base_name + L".wav";
+    const std::wstring text_path = directory + L"\\" + base_name + L".txt";
+    if (!write_file(wav_path, _recorded_audio))
+    {
+        set_status(L"WAV ファイルを保存できませんでした。");
+        return;
+    }
+    if (!write_utf8_text(text_path, text))
+    {
+        DeleteFileW(wav_path.c_str());
+        set_status(L"正解テキストを保存できませんでした。");
+        return;
+    }
+
+    training_sample sample;
+    sample.wav_path = wav_path;
+    sample.text = text;
+    _samples.push_back(std::move(sample));
+    refresh_sample_list();
+    SendMessageW(_sample_list, LB_SETCURSEL, static_cast<WPARAM>(_samples.size() - 1), 0);
+    _selected_audio = _recorded_audio;
+    set_status(L"音声と正解テキストを保存しました。");
 }
 
 std::wstring training_window::get_correction_text() const
 {
     if (!_correction_edit) return {};
     const int length = GetWindowTextLengthW(_correction_edit);
-    std::vector<wchar_t> buffer(static_cast<size_t>(length) + 1, L'\0');
+    std::vector<wchar_t> buffer(static_cast<std::size_t>(length) + 1, L'\0');
     const int copied = GetWindowTextW(_correction_edit, buffer.data(), length + 1);
-    return std::wstring(buffer.data(), static_cast<size_t>((std::max)(copied, 0)));
+    return std::wstring(buffer.data(), static_cast<std::size_t>((std::max)(copied, 0)));
 }
 
 bool training_window::save_training_text(const std::wstring& text) const
@@ -331,7 +553,7 @@ bool training_window::save_training_text(const std::wstring& text) const
     const int byte_count = WideCharToMultiByte(CP_UTF8, 0, line.data(), static_cast<int>(line.size()), nullptr, 0, nullptr, nullptr);
     if (success && byte_count > 0)
     {
-        std::vector<char> utf8(static_cast<size_t>(byte_count));
+        std::vector<char> utf8(static_cast<std::size_t>(byte_count));
         const int converted = WideCharToMultiByte(CP_UTF8, 0, line.data(), static_cast<int>(line.size()), utf8.data(), byte_count, nullptr, nullptr);
         DWORD written = 0;
         success = converted == byte_count && WriteFile(file, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr) != FALSE && written == static_cast<DWORD>(utf8.size());
@@ -343,6 +565,130 @@ bool training_window::save_training_text(const std::wstring& text) const
 
     CloseHandle(file);
     return success;
+}
+
+bool training_window::get_sample_directory(std::wstring& directory, bool create) const
+{
+    wchar_t app_data[MAX_PATH]{};
+    const DWORD path_length = GetEnvironmentVariableW(L"APPDATA", app_data, MAX_PATH);
+    if (path_length == 0 || path_length >= MAX_PATH) return false;
+
+    const std::wstring root = std::wstring(app_data) + L"\\VoiceLink";
+    directory = root + L"\\training_samples";
+    if (!create) return GetFileAttributesW(directory.c_str()) != INVALID_FILE_ATTRIBUTES;
+
+    if (!CreateDirectoryW(root.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
+    if (!CreateDirectoryW(directory.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
+    return true;
+}
+
+bool training_window::read_file(const std::wstring& path, std::vector<std::uint8_t>& data) const
+{
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+
+    LARGE_INTEGER file_size{};
+    bool success = GetFileSizeEx(file, &file_size) != FALSE && file_size.QuadPart >= 0 &&
+        static_cast<unsigned long long>(file_size.QuadPart) <= static_cast<unsigned long long>((std::numeric_limits<std::size_t>::max)());
+    if (success)
+    {
+        data.resize(static_cast<std::size_t>(file_size.QuadPart));
+        std::size_t offset = 0;
+        while (offset < data.size())
+        {
+            const DWORD chunk_size = static_cast<DWORD>((std::min)(data.size() - offset, static_cast<std::size_t>(MAXDWORD)));
+            DWORD read_size = 0;
+            if (!ReadFile(file, data.data() + offset, chunk_size, &read_size, nullptr) || read_size == 0)
+            {
+                success = false;
+                break;
+            }
+            offset += read_size;
+        }
+    }
+    CloseHandle(file);
+    return success;
+}
+
+bool training_window::write_file(const std::wstring& path, const std::vector<std::uint8_t>& data) const
+{
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+
+    bool success = true;
+    std::size_t offset = 0;
+    while (offset < data.size())
+    {
+        const DWORD chunk_size = static_cast<DWORD>((std::min)(data.size() - offset, static_cast<std::size_t>(MAXDWORD)));
+        DWORD written = 0;
+        if (!WriteFile(file, data.data() + offset, chunk_size, &written, nullptr) || written == 0)
+        {
+            success = false;
+            break;
+        }
+        offset += written;
+    }
+    CloseHandle(file);
+    if (!success) DeleteFileW(path.c_str());
+    return success;
+}
+
+bool training_window::read_utf8_text(const std::wstring& path, std::wstring& text) const
+{
+    std::vector<std::uint8_t> data;
+    if (!read_file(path, data)) return false;
+    if (is_utf8_bom(data)) data.erase(data.begin(), data.begin() + 3);
+    if (data.empty())
+    {
+        text.clear();
+        return true;
+    }
+
+    const int wide_count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+        reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), nullptr, 0);
+    if (wide_count <= 0) return false;
+    text.resize(static_cast<std::size_t>(wide_count));
+    return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+        reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), text.data(), wide_count) == wide_count;
+}
+
+bool training_window::write_utf8_text(const std::wstring& path, const std::wstring& text) const
+{
+    const int byte_count = WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
+    if (byte_count <= 0) return false;
+
+    std::vector<std::uint8_t> data;
+    data.reserve(static_cast<std::size_t>(byte_count) + 3);
+    data.push_back(0xEF);
+    data.push_back(0xBB);
+    data.push_back(0xBF);
+    const std::size_t offset = data.size();
+    data.resize(offset + static_cast<std::size_t>(byte_count));
+    if (WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+        reinterpret_cast<char*>(data.data() + offset), byte_count, nullptr, nullptr) != byte_count)
+    {
+        return false;
+    }
+    return write_file(path, data);
+}
+
+std::wstring training_window::create_sample_base_name(const std::wstring& directory) const
+{
+    SYSTEMTIME time{};
+    GetLocalTime(&time);
+
+    wchar_t name[64]{};
+    swprintf_s(name, L"sample_%04u%02u%02u_%02u%02u%02u_%03u",
+        time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds);
+    std::wstring base_name = name;
+
+    for (unsigned int suffix = 0; suffix < 1000; ++suffix)
+    {
+        const std::wstring candidate = suffix == 0 ? base_name : base_name + L"_" + std::to_wstring(suffix);
+        const std::wstring path = directory + L"\\" + candidate + L".wav";
+        if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) return candidate;
+    }
+    return base_name + L"_overflow";
 }
 
 void training_window::apply_font(HWND control)
