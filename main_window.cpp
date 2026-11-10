@@ -1,6 +1,8 @@
 ﻿#include "main_window.h"
 
 #include <CommCtrl.h>
+#include <ShObjIdl.h>
+#include <wrl/client.h>
 
 #include <algorithm>
 #include <string>
@@ -14,13 +16,14 @@ constexpr wchar_t main_window::_window_class_name[];
 namespace
 {
     constexpr int window_width = 600;
-    constexpr int window_height = 540;
+    constexpr int window_height = 600;
     constexpr int margin = 16;
     constexpr int control_height = 26;
     constexpr int label_height = 20;
     constexpr int play_button_width = 100;
     constexpr int reconnect_button_width = 100;
     constexpr int volume_test_button_width = 110;
+    constexpr int path_button_width = 80;
 }
 
 bool main_window::create(HINSTANCE instance, int show_command)
@@ -132,6 +135,27 @@ void main_window::set_reconnect_enabled(bool enabled)
     }
 }
 
+void main_window::set_voicevox_path(const std::wstring& path)
+{
+    if (_engine_path_edit)
+    {
+        SetWindowTextW(_engine_path_edit, path.c_str());
+    }
+}
+
+std::wstring main_window::get_voicevox_path() const
+{
+    if (!_engine_path_edit)
+    {
+        return {};
+    }
+
+    const int length = GetWindowTextLengthW(_engine_path_edit);
+    std::vector<wchar_t> buffer(static_cast<size_t>(length) + 1, L'\0');
+    const int copied = GetWindowTextW(_engine_path_edit, buffer.data(), length + 1);
+    return std::wstring(buffer.data(), static_cast<size_t>(std::max(copied, 0)));
+}
+
 void main_window::set_volume(int volume)
 {
     volume = std::clamp(volume, 0, 100);
@@ -204,6 +228,11 @@ void main_window::set_volume_callback(std::function<void(int)> callback)
 void main_window::set_volume_test_callback(std::function<void()> callback)
 {
     _volume_test_callback = std::move(callback);
+}
+
+void main_window::set_voicevox_path_callback(std::function<void(const std::wstring&)> callback)
+{
+    _voicevox_path_callback = std::move(callback);
 }
 
 void main_window::set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback)
@@ -288,6 +317,20 @@ LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param
                 _volume_test_callback();
             }
             return 0;
+
+        case engine_path_browse_button_id:
+            if (HIWORD(w_param) == BN_CLICKED)
+            {
+                browse_voicevox_path();
+            }
+            return 0;
+
+        case engine_path_apply_button_id:
+            if (HIWORD(w_param) == BN_CLICKED && _voicevox_path_callback)
+            {
+                _voicevox_path_callback(get_voicevox_path());
+            }
+            return 0;
         }
         break;
 
@@ -301,6 +344,38 @@ LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param
 
 bool main_window::create_controls()
 {
+    _engine_path_label = CreateWindowExW(
+        0, L"STATIC", L"VOICEVOX Engine (run.exe)",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(engine_path_label_id)),
+        _instance, nullptr
+    );
+
+    _engine_path_edit = CreateWindowExW(
+        WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(engine_path_edit_id)),
+        _instance, nullptr
+    );
+
+    _engine_path_browse_button = CreateWindowExW(
+        0, L"BUTTON", L"Browse...",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(engine_path_browse_button_id)),
+        _instance, nullptr
+    );
+
+    _engine_path_apply_button = CreateWindowExW(
+        0, L"BUTTON", L"Apply",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(engine_path_apply_button_id)),
+        _instance, nullptr
+    );
+
     _speaker_label = CreateWindowExW(
         0, L"STATIC", L"Speaker / Style",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
@@ -383,7 +458,8 @@ bool main_window::create_controls()
     );
 
     const bool controls_created =
-        _speaker_label && _speaker_combo && _reconnect_button &&
+        _engine_path_label && _engine_path_edit && _engine_path_browse_button &&
+        _engine_path_apply_button && _speaker_label && _speaker_combo &&
         _text_label && _text_edit && _volume_label && _volume_slider &&
         _volume_test_button && _play_button && _status_text;
 
@@ -396,6 +472,10 @@ bool main_window::create_controls()
     SendMessageW(_volume_slider, TBM_SETPAGESIZE, 0, 10);
     SendMessageW(_volume_slider, TBM_SETPOS, TRUE, 100);
 
+    apply_control_font(_engine_path_label);
+    apply_control_font(_engine_path_edit);
+    apply_control_font(_engine_path_browse_button);
+    apply_control_font(_engine_path_apply_button);
     apply_control_font(_speaker_label);
     apply_control_font(_speaker_combo);
     apply_control_font(_reconnect_button);
@@ -411,7 +491,8 @@ bool main_window::create_controls()
 
 void main_window::layout_controls(int width, int height)
 {
-    if (!_speaker_label || !_speaker_combo || !_reconnect_button ||
+    if (!_engine_path_label || !_engine_path_edit || !_engine_path_browse_button ||
+        !_engine_path_apply_button || !_speaker_label || !_speaker_combo || !_reconnect_button ||
         !_text_label || !_text_edit || !_volume_label || !_volume_slider ||
         !_volume_test_button || !_play_button || !_status_text)
     {
@@ -423,16 +504,24 @@ void main_window::layout_controls(int width, int height)
     const int buttons_y = status_y - margin - control_height;
     const int volume_y = buttons_y - margin - control_height;
     const int volume_label_y = volume_y - label_height;
-    const int edit_y = margin + label_height + control_height + margin + label_height;
+    const int path_y = margin + label_height;
+    const int path_button_total_width = path_button_width * 2 + margin;
+    const int speaker_label_y = path_y + control_height + margin;
+    const int edit_y = speaker_label_y + label_height + control_height + margin + label_height;
     const int edit_height = std::max(volume_label_y - margin - edit_y - margin, 60);
     const int speaker_combo_width = std::max(content_width - reconnect_button_width - margin, 80);
 
-    MoveWindow(_speaker_label, margin, margin, content_width, label_height, TRUE);
-    MoveWindow(_speaker_combo, margin, margin + label_height, speaker_combo_width, 240, TRUE);
+    MoveWindow(_engine_path_label, margin, margin, content_width, label_height, TRUE);
+    MoveWindow(_engine_path_edit, margin, path_y, std::max(content_width - path_button_total_width - margin, 100), control_height, TRUE);
+    MoveWindow(_engine_path_browse_button, width - margin - path_button_total_width, path_y, path_button_width, control_height, TRUE);
+    MoveWindow(_engine_path_apply_button, width - margin - path_button_width, path_y, path_button_width, control_height, TRUE);
+
+    MoveWindow(_speaker_label, margin, speaker_label_y, content_width, label_height, TRUE);
+    MoveWindow(_speaker_combo, margin, speaker_label_y + label_height, speaker_combo_width, 240, TRUE);
     MoveWindow(
         _reconnect_button,
         margin + speaker_combo_width + margin,
-        margin + label_height,
+        speaker_label_y + label_height,
         reconnect_button_width,
         control_height,
         TRUE
@@ -468,6 +557,67 @@ void main_window::layout_controls(int width, int height)
         TRUE
     );
     MoveWindow(_status_text, margin, status_y, content_width - play_button_width - margin, label_height, TRUE);
+}
+
+void main_window::browse_voicevox_path()
+{
+    const HRESULT apartment_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    const bool uninitialize_apartment = SUCCEEDED(apartment_result);
+    if (FAILED(apartment_result) && apartment_result != RPC_E_CHANGED_MODE)
+    {
+        set_status(L"ファイル選択ダイアログを初期化できませんでした。");
+        return;
+    }
+
+    Microsoft::WRL::ComPtr<IFileOpenDialog> dialog;
+    HRESULT result = CoCreateInstance(
+        CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
+        IID_PPV_ARGS(dialog.GetAddressOf())
+    );
+
+    if (SUCCEEDED(result))
+    {
+        const COMDLG_FILTERSPEC filters[] = {
+            { L"VOICEVOX Engine (run.exe)", L"run.exe" },
+            { L"Executable files", L"*.exe" },
+            { L"All files", L"*.*" }
+        };
+        dialog->SetFileTypes(static_cast<UINT>(std::size(filters)), filters);
+        dialog->SetTitle(L"VOICEVOX Engine の run.exe を選択");
+
+        FILEOPENDIALOGOPTIONS options{};
+        if (SUCCEEDED(dialog->GetOptions(&options)))
+        {
+            dialog->SetOptions(options | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST);
+        }
+
+        result = dialog->Show(_window);
+    }
+
+    if (SUCCEEDED(result))
+    {
+        Microsoft::WRL::ComPtr<IShellItem> item;
+        result = dialog->GetResult(item.GetAddressOf());
+        if (SUCCEEDED(result))
+        {
+            PWSTR selected_path = nullptr;
+            result = item->GetDisplayName(SIGDN_FILESYSPATH, &selected_path);
+            if (SUCCEEDED(result) && selected_path)
+            {
+                SetWindowTextW(_engine_path_edit, selected_path);
+                CoTaskMemFree(selected_path);
+                if (_voicevox_path_callback)
+                {
+                    _voicevox_path_callback(get_voicevox_path());
+                }
+            }
+        }
+    }
+
+    if (uninitialize_apartment)
+    {
+        CoUninitialize();
+    }
 }
 
 void main_window::apply_control_font(HWND control)
