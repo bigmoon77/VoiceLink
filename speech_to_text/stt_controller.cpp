@@ -27,7 +27,7 @@ stt_controller::stt_controller(main_window& window, std::unique_ptr<speech_recog
     });
     _training_window.set_batch_adaptation_callback([this](const std::vector<std::wstring>& texts, std::size_t repetitions)
     {
-        submit_adaptation_batch(texts, repetitions);
+        return submit_adaptation_batch(texts, repetitions);
     });
     update_buttons();
 }
@@ -163,12 +163,13 @@ void stt_controller::submit_adaptation(const std::wstring& text)
     _training_window.set_status(L"学習データの送信を要求しました。");
 }
 
-void stt_controller::submit_adaptation_batch(const std::vector<std::wstring>& texts, std::size_t repetitions)
+bool stt_controller::submit_adaptation_batch(const std::vector<std::wstring>& texts, std::size_t repetitions)
 {
     if (!_engine || !_engine->submit_adaptation_batch(texts, repetitions))
     {
         _training_window.set_status(L"一括適応を開始できません。音声認識中か、前回の適応処理が完了しているか確認してください。各テキストは512文字以内、総処理件数は100,000件以内です。");
-        return;
+        return false;
     }
     _training_window.set_status(L"一括適応を開始しました。SAPI の適応完了通知に合わせて順番に処理します。");
+    return true;
 }
