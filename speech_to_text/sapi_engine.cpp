@@ -170,7 +170,14 @@ bool sapi_engine::run(
             SPEVENT speech_event{};
             ULONG event_count = 0;
             result = context->GetEvents(1, &speech_event, &event_count);
-            if (FAILED(result) || event_count == 0)
+            if (FAILED(result))
+            {
+                error = L\"音声認識イベントを取得できません: \";
+                error += get_hresult_message(result);
+                success = false;
+                break;
+            }
+            if (event_count == 0)
             {
                 break;
             }
