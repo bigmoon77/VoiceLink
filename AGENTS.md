@@ -47,7 +47,7 @@ GUI は ComboBox / 複数行 Edit / Button / Static を使用します。GUI の
 - VOICEVOX Engine の通信処理と音声再生処理を分離する。
 - 将来、別の音声合成エンジンへ差し替えられる構造にする。
 
-VOICEVOX Engine は外部プロセスとして動作する前提です。初期段階では起動・終了の自動管理を行わず、ユーザーが起動した Engine に接続します。
+VOICEVOX Engine は外部プロセスとして動作します。VoiceLink 起動時に実行ファイルを検索して自動起動し、VoiceLink が起動したプロセスだけを終了時に停止します。すでに稼働中の Engine は再利用し、VoiceLink 終了時にも停止しません。
 
 ### 2.3 中期目標: 音声入力
 
