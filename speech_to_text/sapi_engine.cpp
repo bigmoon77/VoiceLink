@@ -172,7 +172,7 @@ bool sapi_engine::run(
             result = context->GetEvents(1, &speech_event, &event_count);
             if (FAILED(result))
             {
-                error = L\"音声認識イベントを取得できません: \";
+                error = L"音声認識イベントを取得できません: ";
                 error += get_hresult_message(result);
                 success = false;
                 break;
