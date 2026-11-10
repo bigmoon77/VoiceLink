@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <functional>
-#include <memory>
 #include <utility>
 
 tts_controller::tts_controller(main_window& window, audio_player& player)
@@ -49,12 +48,12 @@ void tts_controller::initialize_async()
     start_worker([this]()
     {
         winrt::init_apartment(winrt::apartment_type::multi_threaded);
-        auto* result = new speakers_result();
+        speakers_result result;
         std::vector<voicevox_engine::speaker_style> engine_speakers;
 
-        if (_engine.initialize(engine_speakers, result->error))
+        if (_engine.initialize(engine_speakers, result.error))
         {
-            result->speakers.reserve(engine_speakers.size());
+            result.speakers.reserve(engine_speakers.size());
 
             for (const auto& speaker : engine_speakers)
             {
@@ -62,15 +61,19 @@ void tts_controller::initialize_async()
                 display_name += L" / ";
                 display_name += speaker.style_name;
 
-                result->speakers.push_back({ std::move(display_name), speaker.speaker_id });
+                result.speakers.push_back({ std::move(display_name), speaker.speaker_id });
             }
         }
 
         winrt::uninit_apartment();
 
-        if (!PostMessageW(_window.get_handle(), speakers_ready_message, 0, reinterpret_cast<LPARAM>(result)))
         {
-            delete result;
+            std::lock_guard<std::mutex> lock(_result_mutex);
+            _speakers_result = std::move(result);
+        }
+
+        if (!PostMessageW(_window.get_handle(), speakers_ready_message, 0, 0))
+        {
             _busy = false;
         }
     });
@@ -105,13 +108,17 @@ void tts_controller::on_play()
 
     start_worker([this, text, speaker_id]()
     {
-        auto* result = new synthesis_result();
+        synthesis_result result;
 
-        _engine.synthesize(text, speaker_id, result->wav_data, result->error);
+        _engine.synthesize(text, speaker_id, result.wav_data, result.error);
 
-        if (!PostMessageW(_window.get_handle(), synthesis_ready_message, 0, reinterpret_cast<LPARAM>(result)))
         {
-            delete result;
+            std::lock_guard<std::mutex> lock(_result_mutex);
+            _synthesis_result = std::move(result);
+        }
+
+        if (!PostMessageW(_window.get_handle(), synthesis_ready_message, 0, 0))
+        {
             _busy = false;
         }
     });
@@ -126,25 +133,29 @@ bool tts_controller::handle_window_message(UINT message, WPARAM, LPARAM l_param)
             _worker.join();
         }
 
-        std::unique_ptr<speakers_result> result(reinterpret_cast<speakers_result*>(l_param));
+        speakers_result result;
+        {
+            std::lock_guard<std::mutex> lock(_result_mutex);
+            result = std::move(_speakers_result);
+        }
         _busy = false;
 
-        if (!result->error.empty())
+        if (!result.error.empty())
         {
             _window.set_speakers({});
             _window.set_play_enabled(false);
-            _window.set_status(L"VOICEVOX 接続失敗: " + result->error);
+            _window.set_status(L"VOICEVOX 接続失敗: " + result.error);
             return true;
         }
 
-        _window.set_speakers(result->speakers);
-        _window.set_play_enabled(!result->speakers.empty());
+        _window.set_speakers(result.speakers);
+        _window.set_play_enabled(!result.speakers.empty());
         _window.set_status(
             L"VOICEVOX 接続済み (" +
-            std::to_wstring(result->speakers.size()) +
+            std::to_wstring(result.speakers.size()) +
             L" styles)"
         );
-        _initialized = !result->speakers.empty();
+        _initialized = !result.speakers.empty();
         return true;
     }
 
@@ -155,17 +166,21 @@ bool tts_controller::handle_window_message(UINT message, WPARAM, LPARAM l_param)
             _worker.join();
         }
 
-        std::unique_ptr<synthesis_result> result(reinterpret_cast<synthesis_result*>(l_param));
+        synthesis_result result;
+        {
+            std::lock_guard<std::mutex> lock(_result_mutex);
+            result = std::move(_synthesis_result);
+        }
         _busy = false;
 
-        if (!result->error.empty())
+        if (!result.error.empty())
         {
             _window.set_play_enabled(_initialized);
-            _window.set_status(L"音声合成失敗: " + result->error);
+            _window.set_status(L"音声合成失敗: " + result.error);
             return true;
         }
 
-        if (!_player.play(result->wav_data))
+        if (!_player.play(result.wav_data))
         {
             _window.set_play_enabled(_initialized);
             _window.set_status(L"生成した WAV を再生できませんでした。");
