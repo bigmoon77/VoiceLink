@@ -131,6 +131,7 @@
     <ClCompile Include="app_settings.cpp" />
     <ClCompile Include="main_window.cpp" />
     <ClCompile Include="text_to_speech\voicevox_engine.cpp" />
+    <ClCompile Include="text_to_speech\gpt_sovits_engine.cpp" />
     <ClCompile Include="text_to_speech\audio_player.cpp" />
     <ClCompile Include="text_to_speech\tts_controller.cpp" />
     <ClCompile Include="text_to_speech\voicevox_process.cpp" />
@@ -143,6 +144,7 @@
     <ClInclude Include="main_window.h" />
     <ClInclude Include="app_settings.h" />
     <ClInclude Include="text_to_speech\voicevox_engine.h" />
+    <ClInclude Include="text_to_speech\gpt_sovits_engine.h" />
     <ClInclude Include="text_to_speech\audio_player.h" />
     <ClInclude Include="text_to_speech\tts_controller.h" />
     <ClInclude Include="text_to_speech\tts_engine.h" />
