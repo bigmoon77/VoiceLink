@@ -53,6 +53,7 @@ private:
         sample_play_button_id,
         sample_save_button_id,
         sample_update_button_id,
+        open_directory_button_id,
         batch_count_label_id,
         batch_count_edit_id,
         batch_adaptation_button_id
@@ -74,6 +75,7 @@ private:
     void play_selected_sample();
     void save_recorded_sample();
     void update_selected_sample_text();
+    void open_sample_directory();
     void submit_all_samples_for_adaptation();
     std::wstring get_correction_text() const;
     bool save_training_text(const std::wstring& text) const;
@@ -103,6 +105,7 @@ private:
     HWND _sample_play_button = nullptr;
     HWND _sample_save_button = nullptr;
     HWND _sample_update_button = nullptr;
+    HWND _open_directory_button = nullptr;
     HWND _batch_count_label = nullptr;
     HWND _batch_count_edit = nullptr;
     HWND _batch_adaptation_button = nullptr;
