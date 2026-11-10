@@ -25,6 +25,7 @@ public:
     void set_status(const std::wstring& status);
     void set_alternate_callback(std::function<void(std::uint64_t, std::size_t)> callback);
     void set_adaptation_callback(std::function<void(const std::wstring&)> callback);
+    void set_batch_adaptation_callback(std::function<void(const std::vector<std::wstring>&, std::size_t)> callback);
 
 private:
     struct training_sample
@@ -51,7 +52,10 @@ private:
         capture_button_id,
         sample_play_button_id,
         sample_save_button_id,
-        sample_update_button_id
+        sample_update_button_id,
+        batch_count_label_id,
+        batch_count_edit_id,
+        batch_adaptation_button_id
     };
 
     static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param);
@@ -70,6 +74,7 @@ private:
     void play_selected_sample();
     void save_recorded_sample();
     void update_selected_sample_text();
+    void submit_all_samples_for_adaptation();
     std::wstring get_correction_text() const;
     bool save_training_text(const std::wstring& text) const;
     bool get_sample_directory(std::wstring& directory, bool create) const;
@@ -98,6 +103,9 @@ private:
     HWND _sample_play_button = nullptr;
     HWND _sample_save_button = nullptr;
     HWND _sample_update_button = nullptr;
+    HWND _batch_count_label = nullptr;
+    HWND _batch_count_edit = nullptr;
+    HWND _batch_adaptation_button = nullptr;
 
     std::vector<speech_recognition_result> _records;
     std::vector<training_sample> _samples;
@@ -107,4 +115,5 @@ private:
     audio_player _audio_player;
     std::function<void(std::uint64_t, std::size_t)> _alternate_callback;
     std::function<void(const std::wstring&)> _adaptation_callback;
+    std::function<void(const std::vector<std::wstring>&, std::size_t)> _batch_adaptation_callback;
 };
