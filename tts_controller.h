@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -46,5 +47,8 @@ private:
     voicevox_engine _engine;
     std::thread _worker;
     std::atomic<bool> _busy{ false };
+    std::mutex _result_mutex;
+    speakers_result _speakers_result;
+    synthesis_result _synthesis_result;
     bool _initialized = false;
 };
