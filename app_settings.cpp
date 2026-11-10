@@ -1,6 +1,7 @@
 ﻿#include "app_settings.h"
 
 #include <Windows.h>
+#include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Data.Json.h>
 #include <winrt/base.h>
 
