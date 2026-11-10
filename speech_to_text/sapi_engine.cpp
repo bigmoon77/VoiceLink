@@ -83,12 +83,25 @@ bool sapi_engine::select_alternate(std::uint64_t result_id, std::size_t alternat
 
 bool sapi_engine::submit_adaptation_data(const std::wstring& text)
 {
-    if (!_running.load() || !_command_event || text.empty() || text.size() > 512) return false;
+    return submit_adaptation_batch(std::vector<std::wstring>{ text }, 1);
+}
+
+bool sapi_engine::submit_adaptation_batch(const std::vector<std::wstring>& texts, std::size_t repetitions)
+{
+    if (!_running.load() || !_command_event || texts.empty() || repetitions == 0 || repetitions > 1000) return false;
+    if (texts.size() > 100000 / repetitions) return false;
+    for (const std::wstring& text : texts)
+    {
+        if (text.empty() || text.size() > 512) return false;
+    }
+
     bool expected = false;
     if (!_adaptation_pending.compare_exchange_strong(expected, true)) return false;
+
     command value;
     value.type = command_type::adaptation_data;
-    value.text = text;
+    value.texts = texts;
+    value.repetitions = repetitions;
     enqueue_command(value);
     return true;
 }
@@ -170,7 +183,37 @@ bool sapi_engine::run(
     _pending_alternates.clear();
     _adaptation_pending = false;
     ULONGLONG adaptation_start_tick = 0;
+    std::deque<std::wstring> adaptation_queue;
     _running = true;
+
+    const auto send_next_adaptation = [&]()
+    {
+        if (adaptation_queue.empty())
+        {
+            _adaptation_pending = false;
+            adaptation_start_tick = 0;
+            if (on_status) on_status(L"サンプル文章の適応処理がすべて完了しました。");
+            return;
+        }
+
+        const std::wstring text = std::move(adaptation_queue.front());
+        adaptation_queue.pop_front();
+        const HRESULT adaptation_result = context->SetAdaptationData(text.c_str(), static_cast<ULONG>(text.size()));
+        if (FAILED(adaptation_result))
+        {
+            adaptation_queue.clear();
+            _adaptation_pending = false;
+            adaptation_start_tick = 0;
+            if (on_status) on_status(L"学習データの送信に失敗しました: " + get_hresult_message(adaptation_result));
+            return;
+        }
+
+        adaptation_start_tick = GetTickCount64();
+        if (on_status)
+        {
+            on_status(L"SAPIへ文章を送信しました。残り " + std::to_wstring(adaptation_queue.size()) + L" 件の適応処理を待っています。");
+        }
+    };
 
     const auto process_commands = [&]()
     {
@@ -202,18 +245,15 @@ bool sapi_engine::run(
             }
             else
             {
-                const HRESULT adaptation_result = context->SetAdaptationData(value.text.c_str(), static_cast<ULONG>(value.text.size()));
-                if (FAILED(adaptation_result))
+                adaptation_queue.clear();
+                for (std::size_t repetition = 0; repetition < value.repetitions; ++repetition)
                 {
-                    _adaptation_pending = false;
-                    adaptation_start_tick = 0;
-                    if (on_status) on_status(L"学習データの送信に失敗しました: " + get_hresult_message(adaptation_result));
+                    for (const std::wstring& text : value.texts)
+                    {
+                        adaptation_queue.push_back(text);
+                    }
                 }
-                else
-                {
-                    adaptation_start_tick = GetTickCount64();
-                    if (on_status) on_status(L"学習データをSAPIへ送信しました。エンジンの適応処理を待っています。");
-                }
+                send_next_adaptation();
             }
         }
     };
@@ -227,9 +267,10 @@ bool sapi_engine::run(
         {
             if (_adaptation_pending.load() && adaptation_start_tick != 0 && GetTickCount64() - adaptation_start_tick > 30000)
             {
+                adaptation_queue.clear();
                 _adaptation_pending = false;
                 adaptation_start_tick = 0;
-                if (on_status) on_status(L"SAPIから適応完了通知がありません。エンジンが学習に対応していない可能性があります。");
+                if (on_status) on_status(L"SAPIから適応完了通知がありません。残りの一括処理を中止しました。");
             }
             continue;
         }
@@ -325,9 +366,8 @@ bool sapi_engine::run(
             }
             else if (speech_event.eEventId == SPEI_ADAPTATION)
             {
-                _adaptation_pending = false;
                 adaptation_start_tick = 0;
-                if (on_status) on_status(L"SAPIの適応処理が完了しました。");
+                send_next_adaptation();
             }
             else if (speech_event.elParamType == SPET_LPARAM_IS_OBJECT && speech_event.lParam != 0)
             {
