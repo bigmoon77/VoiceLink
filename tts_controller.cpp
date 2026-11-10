@@ -128,7 +128,14 @@ void tts_controller::on_play()
     {
         synthesis_result result;
 
-        _engine->synthesize(text, speaker_id, result.wav_data, result.error);
+        try
+        {
+            _engine->synthesize(text, speaker_id, result.wav_data, result.error);
+        }
+        catch (...)
+        {
+            result.error = L"音声合成中に予期しないエラーが発生しました。";
+        }
 
         {
             std::lock_guard<std::mutex> lock(_result_mutex);
