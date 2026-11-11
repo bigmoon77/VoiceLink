@@ -120,6 +120,7 @@ private:
     void update_volume_label(int volume);
     void browse_voicevox_path();
     void browse_gpt_reference_audio();
+    void update_engine_controls();
 
     HINSTANCE _instance = nullptr;
     HWND _window = nullptr;
