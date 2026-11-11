@@ -261,7 +261,7 @@ main_window::gpt_sovits_form_settings main_window::get_gpt_sovits_settings() con
             return {};
         }
         const int length = GetWindowTextLengthW(control);
-        std::vector<wchar_t> buffer(static_cast<size_t>(length) + 1, L'\\0');
+        std::vector<wchar_t> buffer(static_cast<size_t>(length) + 1, L'\0');
         const int copied = GetWindowTextW(control, buffer.data(), length + 1);
         return std::wstring(buffer.data(), static_cast<size_t>(std::max(copied, 0)));
     };
@@ -270,7 +270,7 @@ main_window::gpt_sovits_form_settings main_window::get_gpt_sovits_settings() con
     const std::wstring port_text = read_text(_gpt_port_edit);
     wchar_t* end = nullptr;
     const unsigned long port = std::wcstoul(port_text.c_str(), &end, 10);
-    if (port_text.empty() || !end || *end != L'\\0' || port == 0 || port > 65535)
+    if (port_text.empty() || !end || *end != L'\0' || port == 0 || port > 65535)
     {
         value.port = 0;
     }
