@@ -261,8 +261,8 @@ bool storage_system::save_training_sample(
         if (lock == INVALID_HANDLE_VALUE) continue;
 
         const std::wstring suffix_id = L"." + make_unique_suffix() + L".tmp";
-        const std::wstring wav_temp = stem + suffix_id + L".wav";
-        const std::wstring text_temp = stem + suffix_id + L".txt";
+        const std::wstring wav_temp = stem + suffix_id + L"_wav.tmp";
+        const std::wstring text_temp = stem + suffix_id + L"_text.tmp";
         bool success = write_binary_exclusive(wav_temp, wav_data) &&
             write_binary_exclusive(text_temp, text_data);
         DWORD move_error = ERROR_SUCCESS;
