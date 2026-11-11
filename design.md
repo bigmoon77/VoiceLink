@@ -44,7 +44,9 @@ VoiceLink (Application)
     +-- VoiceLink.TTS
     |      +-- tts_engine (interface)
     |      |      +-- voicevox_engine
+    |      |      +-- gpt_sovits_engine
     |      +-- VOICEVOX Engine (HTTP / localhost)
+    |      +-- GPT-SoVITS API (HTTP / localhost)
     |
     +-- VoiceLink.Audio
     |      +-- audio_player
@@ -161,7 +163,7 @@ GUI と TTS / Audio の間を仲介するクラスです。実装ファイルは
 
 **責務**
 - 音声合成エンジンの共通インターフェースを提供する。
-- VOICEVOX Engine との HTTP 通信を行う。
+- VOICEVOX Engine / GPT-SoVITS API との HTTP 通信を行う。
 - 話者・スタイル情報を取得する。
 - テキストを WAV データへ変換する。
 - 音声再生デバイスや再生制御を扱わない。
@@ -343,7 +345,8 @@ SAPI を選択している場合、メインウィンドウの `Training...` か
 
 初期実装で少なくとも次の失敗を区別します。
 
-- VOICEVOX Engine に接続できない。
+- VOICEVOX Engine または GPT-SoVITS API に接続できない。
+- GPT-SoVITS の参照音声ファイルが存在しない、参照テキストが未設定である、または接続先設定が不正である。
 - HTTP リクエストが失敗する、またはタイムアウトする。
 - Engine がエラー応答を返す。
 - JSON の解析に失敗する。
