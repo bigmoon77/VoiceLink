@@ -49,6 +49,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
     gpt_settings.text_language = saved_gpt_settings.text_language;
     controller.set_gpt_sovits_settings(gpt_settings);
 
+    main_window::gpt_sovits_form_settings form_settings;
+    form_settings.host = saved_gpt_settings.host;
+    form_settings.port = saved_gpt_settings.port;
+    form_settings.reference_audio_path = saved_gpt_settings.reference_audio_path;
+    form_settings.prompt_text = saved_gpt_settings.prompt_text;
+    form_settings.prompt_language = saved_gpt_settings.prompt_language;
+    form_settings.text_language = saved_gpt_settings.text_language;
+    window.set_gpt_sovits_settings(form_settings);
+
     window.set_selected_engine(
         settings.get_tts_engine_type() == app_settings::tts_engine_type::gpt_sovits ? 1 : 0
     );
@@ -69,6 +78,37 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
         controller.set_engine_type(engine_index == 1);
         controller.initialize_async();
     });
+
+    window.set_gpt_sovits_settings_callback(
+        [&](const main_window::gpt_sovits_form_settings& value)
+        {
+            app_settings::gpt_sovits_settings saved;
+            saved.host = value.host;
+            saved.port = value.port;
+            saved.reference_audio_path = value.reference_audio_path;
+            saved.prompt_text = value.prompt_text;
+            saved.prompt_language = value.prompt_language;
+            saved.text_language = value.text_language;
+
+            settings.set_gpt_sovits_settings(saved);
+            if (!settings.save())
+            {
+                window.set_status(L"GPT-SoVITS 設定を保存できませんでした。");
+                return;
+            }
+
+            gpt_sovits_engine::settings engine_settings;
+            engine_settings.host = saved.host;
+            engine_settings.port = saved.port;
+            engine_settings.reference_audio_path = saved.reference_audio_path;
+            engine_settings.prompt_text = saved.prompt_text;
+            engine_settings.prompt_language = saved.prompt_language;
+            engine_settings.text_language = saved.text_language;
+            controller.set_gpt_sovits_settings(engine_settings);
+            controller.initialize_async();
+            window.set_status(L"GPT-SoVITS 設定を保存しました。接続を確認しています...");
+        }
+    );
 
     window.set_voicevox_path_callback([&](const std::wstring& path)
     {
