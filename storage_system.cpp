@@ -10,12 +10,6 @@ namespace
 {
     std::atomic<unsigned long long> temporary_counter{ 0 };
 
-    // 想定頻度: UTF-8テキスト読み込み1回につき1回。
-    bool has_utf8_bom(const std::vector<std::uint8_t>& data)
-    {
-        return data.size() >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF;
-    }
-
     // 想定頻度: UTF-8 テキスト書き込み時。
     bool encode_utf8(const std::wstring& text, std::vector<std::uint8_t>& data, bool bom)
     {
@@ -108,8 +102,6 @@ std::wstring storage_system::get_config_path(bool create)
     const std::wstring root = get_directory_path(directory::root, create);
     return root.empty() ? std::wstring{} : root + L"\\config.json";
 }
-
-// 想定頻度: トレーニング画面表示時・認識結果保存時。
 // 想定頻度: 設定ファイルなどのバイナリ読み込み時。
 bool storage_system::read_binary(const std::wstring& path, std::vector<std::uint8_t>& data)
 {
@@ -165,17 +157,14 @@ bool storage_system::write_binary_atomic(const std::wstring& path, const std::ve
     if (!moved) DeleteFileW(temporary.c_str());
     return moved;
 }
-
 // 想定頻度: UTF-8 テキストを新規作成するとき。
-// 想定頻度: 計測レポートなど、新規テキストファイルの保存時のみ。
 bool storage_system::write_utf8_text_new(const std::wstring& path, const std::wstring& text)
 {
     std::vector<std::uint8_t> data;
     if (!encode_utf8(text, data, true)) return false;
     return write_binary_exclusive(path, data);
 }
-
-// 想定頻度: 汎用UTF-8テキスト保存時のみ。現行サンプル保存経路では未使用。
+// 想定頻度: UTF-8 テキストを安全に更新するとき。
 bool storage_system::write_utf8_text_atomic(const std::wstring& path, const std::wstring& text)
 {
     std::vector<std::uint8_t> data;
@@ -191,8 +180,3 @@ bool storage_system::write_utf8_text_atomic(const std::wstring& path, const std:
     if (!moved) DeleteFileW(temporary.c_str());
     return moved;
 }
-
-// 想定頻度: 認識結果の確定ごとに最大1回。
-// 想定頻度: サンプル一覧読み込み・一括適応時にサンプル1件あたり1回。
-// 想定頻度: テキスト編集時に1回。旧形式の自動移行時にも最大1回。
-// 想定頻度: ユーザーが録音サンプルを保存する操作ごとに1回。
