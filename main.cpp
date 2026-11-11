@@ -1,12 +1,8 @@
 ﻿#include "app_settings.h"
 #include "main_window.h"
 #include "text_to_speech/tts_controller.h"
-#include "speech_to_text/stt_controller.h"
-#include "speech_to_text/sapi_engine.h"
 
 #include <winrt/base.h>
-
-#include <memory>
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
 {
@@ -31,7 +27,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
 
     audio_player player;
     tts_controller controller(window, player);
-    stt_controller speech_controller(window, std::make_unique<sapi_engine>());
     window.set_voicevox_path(settings.get_voicevox_path());
     controller.set_voicevox_path(settings.get_voicevox_path());
     controller.set_engine_type(
