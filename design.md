@@ -448,7 +448,7 @@ SAPI を選択している場合、メインウィンドウの `Training...` か
 | 項目 | 現状 | 決定時の観点 |
 |---|---|---|
 | GUI フレームワーク | **決定: Win32 標準コントロール** | Windows API の ComboBox / Edit / Button / Static を使用。追加の GUI 依存なし |
-| C++ 言語標準 | **決定: C++17** | C++/WinRT を利用するため |
+| C++ 言語標準 | **決定: Win32 は C++17、x64 は C++20** | Visual Studio の構成ごとの設定に合わせる |
 | HTTP クライアント | **決定: WinHTTP** | Windows 標準 API を利用 |
 | JSON パーサー | **決定: Windows.Data.Json (C++/WinRT)** | Windows SDK の JSON API を利用 |
 | 音声再生 API | **初期実装: WinMM PlaySoundW** | WAV メモリ再生。高度な制御が必要になれば XAudio2 等を検討 |
