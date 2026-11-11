@@ -163,6 +163,12 @@ void update()
 }
 
 const std::uint64_t count = call_frequency<&update>::get_count();
+
+// 計測結果の保存
+call_frequency_report::save(
+    call_frequency<&update>::make_entry(L"update"),
+    call_frequency<&render>::make_entry(L"render")
+);
 ```
 
 メンバー関数も `call_frequency<&class_name::method_name>` として計測できます。オーバーロード関数は関数ポインター型を明示して選択します。
@@ -198,7 +204,7 @@ GUI や各機能クラスは保存先を直接組み立てず、このクラス�
 | `%APPDATA%\\VoiceLink\\sapi_training.txt` | SAPI に送信した訂正文の履歴 | 実装済み |
 | `%APPDATA%\\VoiceLink\\training_samples\\` | 正解テキストを埋め込んだ録音 WAV | 実装済み |
 | `%APPDATA%\\VoiceLink\\training_templates\\` | 学習文生成テンプレート | 追加予定 |
-| `%APPDATA%\\VoiceLink\\logs\\` | ログファイル | 必要になった段階で追加 |
+| `%APPDATA%\\VoiceLink\\logs\\` | 呼び出し頻度レポート CSV | 実装済み |
 | `%APPDATA%\\VoiceLink\\cache\\` | 再生成可能な一時データ・キャッシュ | 必要になった段階で追加 |
 
 設定ファイルは現状ルート直下に置きます。用途別ディレクトリを追加する場合は、既存ファイルを理由なく移動せず、移行が必要なら旧パスからの読み込みと移行手順を別途定義します。
@@ -214,6 +220,7 @@ GPT-SoVITS の参照音声は設定に絶対パスを保持し、VoiceLink の�
 | 学習サンプル `.wav` | RIFF/WAVE、PCM 16-bit、16 kHz、モノラル | `vtxt` 独自チャンクに正解テキストを UTF-8（BOM なし）で格納。チャンク先頭の DWORD は形式バージョン（現在 1） |
 | 旧形式の学習サンプル `.txt` | UTF-8（BOM 付き） | 旧 WAV/TXT ペアの読み込み互換用。新規保存では作成しない |
 | テンプレート | JSON / UTF-8（BOM なしを標準） | テンプレート識別子・本文・必要な属性を保持。スキーマは実装時に確定 |
+| 呼び出し頻度レポート | CSV / UTF-8（BOM 付き） | 関数名と累積呼び出し回数。読み込み機能なし。ファイル名は日時・プロセス ID・Tick Count を含む |
 
 新形式では WAV 内の `vtxt` チャンクを正解テキストの正本とします。旧形式の WAV/TXT ペアは読み込み時に TXT を読み取り、WAV への埋め込みに成功した場合は TXT を削除して自動移行します。移行に失敗した場合も旧 TXT を読み込み元として維持します。
 
@@ -238,6 +245,7 @@ GPT-SoVITS の参照音声は設定に絶対パスを保持し、VoiceLink の�
 - UTF-8 BOM の有無を用途ごとに指定した追記。
 - 学習サンプル WAV への正解テキスト埋め込みと、WAV 単体での保存。
 - WAV 内の `vtxt` チャンクの読み書き。
+- 呼び出し頻度レポートの UTF-8 BOM 付き新規ファイル保存。
 
 学習サンプルの保存手順:
 
