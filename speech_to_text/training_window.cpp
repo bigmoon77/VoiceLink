@@ -404,7 +404,7 @@ void training_window::load_training_samples()
         const std::size_t extension = sample.wav_path.rfind(L".wav");
         if (extension == std::wstring::npos) continue;
         const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
-        if (!read_utf8_text(text_path, sample.text)) continue;
+        if (!storage_system::read_utf8_text(text_path, sample.text)) continue;
         _samples.push_back(std::move(sample));
     } while (FindNextFileW(find_handle, &find_data));
     FindClose(find_handle);
@@ -507,25 +507,10 @@ void training_window::save_recorded_sample()
         return;
     }
 
-    std::wstring directory;
-    if (!get_sample_directory(directory, true))
+    std::wstring wav_path;
+    if (!storage_system::save_training_sample(_recorded_audio, text, wav_path))
     {
-        set_status(L"サンプル保存先フォルダーを作成できませんでした。");
-        return;
-    }
-
-    const std::wstring base_name = create_sample_base_name(directory);
-    const std::wstring wav_path = directory + L"\\" + base_name + L".wav";
-    const std::wstring text_path = directory + L"\\" + base_name + L".txt";
-    if (!write_file(wav_path, _recorded_audio))
-    {
-        set_status(L"WAV ファイルを保存できませんでした。");
-        return;
-    }
-    if (!storage_system::write_utf8_text_atomic(text_path, text))
-    {
-        DeleteFileW(wav_path.c_str());
-        set_status(L"正解テキストを保存できませんでした。");
+        set_status(L"WAV/TXT ペアを保存できませんでした。");
         return;
     }
 
@@ -646,7 +631,7 @@ void training_window::update_selected_sample_text()
         return;
     }
     const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
-    if (!write_utf8_text(text_path, text))
+    if (!storage_system::write_utf8_text_atomic(text_path, text))
     {
         set_status(L"正解テキストを更新できませんでした。");
         return;
