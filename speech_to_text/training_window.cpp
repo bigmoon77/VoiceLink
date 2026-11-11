@@ -605,7 +605,8 @@ void training_window::submit_all_samples_for_adaptation()
 void training_window::open_sample_directory()
 {
     std::wstring directory;
-    directory = storage_system::get_directory_path(storage_system::directory::training_samples, true);\n    if (directory.empty())
+    directory = storage_system::get_directory_path(storage_system::directory::training_samples, true);
+    if (directory.empty())
     {
         set_status(L"サンプル保存先フォルダーを作成できませんでした。");
         return;
