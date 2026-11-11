@@ -635,6 +635,13 @@ LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param
                     set_status(L"参照音声と参照テキストを設定してください。");
                     return 0;
                 }
+                const DWORD attributes = GetFileAttributesW(value.reference_audio_path.c_str());
+                if (attributes == INVALID_FILE_ATTRIBUTES ||
+                    (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+                {
+                    set_status(L"参照音声ファイルが見つかりません。");
+                    return 0;
+                }
                 _gpt_sovits_settings_callback(value);
             }
             return 0;
