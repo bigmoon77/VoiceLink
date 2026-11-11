@@ -203,7 +203,8 @@ bool storage_system::append_utf8_text(const std::wstring& path, const std::wstri
     {
         lock = CreateFileW(lock_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, nullptr);
         if (lock != INVALID_HANDLE_VALUE) break;
-        if (GetLastError() != ERROR_FILE_EXISTS && GetLastError() != ERROR_ALREADY_EXISTS) return false;
+        const DWORD error = GetLastError();
+        if (error != ERROR_FILE_EXISTS && error != ERROR_ALREADY_EXISTS) return false;
         Sleep(10);
     }
     if (lock == INVALID_HANDLE_VALUE) return false;
