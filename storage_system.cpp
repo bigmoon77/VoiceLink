@@ -108,11 +108,13 @@ namespace
 
             const std::uint32_t chunk_size = read_u32_le(wav, offset + 4);
             const std::size_t payload_offset = offset + 8;
-            if (chunk_size > riff_end - payload_offset) return state::invalid;
+            const std::size_t remaining = riff_end - payload_offset;
+            if (chunk_size > remaining) return state::invalid;
+            const std::size_t chunk_data_size = static_cast<std::size_t>(chunk_size);
+            const std::size_t padding = chunk_size & 1u;
+            if (padding > remaining - chunk_data_size) return state::invalid;
 
-            const std::size_t next_offset =
-                payload_offset + static_cast<std::size_t>(chunk_size) + (chunk_size & 1u);
-            if (next_offset > riff_end) return state::invalid;
+            const std::size_t next_offset = payload_offset + chunk_data_size + padding;
 
             if (std::memcmp(wav.data() + offset, "vtxt", 4) == 0)
             {
@@ -162,11 +164,13 @@ namespace
 
             const std::uint32_t chunk_size = read_u32_le(source, offset + 4);
             const std::size_t payload_offset = offset + 8;
-            if (chunk_size > riff_end - payload_offset) return false;
+            const std::size_t remaining = riff_end - payload_offset;
+            if (chunk_size > remaining) return false;
+            const std::size_t chunk_data_size = static_cast<std::size_t>(chunk_size);
+            const std::size_t padding = chunk_size & 1u;
+            if (padding > remaining - chunk_data_size) return false;
 
-            const std::size_t next_offset =
-                payload_offset + static_cast<std::size_t>(chunk_size) + (chunk_size & 1u);
-            if (next_offset > riff_end) return false;
+            const std::size_t next_offset = payload_offset + chunk_data_size + padding;
 
             if (std::memcmp(source.data() + offset, "vtxt", 4) != 0)
             {
