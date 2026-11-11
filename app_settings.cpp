@@ -1,4 +1,5 @@
 ﻿#include "app_settings.h"
+#include "storage_system.h"
 
 #include <Windows.h>
 #include <winrt/Windows.Foundation.Collections.h>
@@ -88,34 +89,16 @@ bool app_settings::load()
         return false;
     }
 
-    HANDLE file = CreateFileW(
-        config_path.c_str(), GENERIC_READ, FILE_SHARE_READ,
-        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr
+    std::vector<std::uint8_t> file_data;
+    if (!storage_system::read_binary(config_path, file_data))
+    {
+        return GetFileAttributesW(config_path.c_str()) == INVALID_FILE_ATTRIBUTES &&
+            GetLastError() == ERROR_FILE_NOT_FOUND;
+    }
+    if (file_data.empty() || file_data.size() > 1024 * 1024) return false;
+    const std::string json(
+        reinterpret_cast<const char*>(file_data.data()), file_data.size()
     );
-    if (file == INVALID_HANDLE_VALUE)
-    {
-        return GetLastError() == ERROR_FILE_NOT_FOUND;
-    }
-
-    LARGE_INTEGER file_size{};
-    if (!GetFileSizeEx(file, &file_size) || file_size.QuadPart <= 0 ||
-        file_size.QuadPart > 1024 * 1024)
-    {
-        CloseHandle(file);
-        return false;
-    }
-
-    std::string json(static_cast<size_t>(file_size.QuadPart), '\0');
-    DWORD bytes_read = 0;
-    const BOOL read_ok = ReadFile(
-        file, json.data(), static_cast<DWORD>(json.size()), &bytes_read, nullptr
-    );
-    CloseHandle(file);
-
-    if (!read_ok || bytes_read != json.size())
-    {
-        return false;
-    }
 
     try
     {
@@ -226,22 +209,8 @@ bool app_settings::save() const
             return false;
         }
 
-        HANDLE file = CreateFileW(
-            config_path.c_str(), GENERIC_WRITE, 0,
-            nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr
-        );
-        if (file == INVALID_HANDLE_VALUE)
-        {
-            return false;
-        }
-
-        DWORD bytes_written = 0;
-        const BOOL write_ok = WriteFile(
-            file, json.data(), static_cast<DWORD>(json.size()),
-            &bytes_written, nullptr
-        );
-        CloseHandle(file);
-        return write_ok && bytes_written == json.size();
+        std::vector<std::uint8_t> file_data(json.begin(), json.end());
+        return storage_system::write_binary_atomic(config_path, file_data);
     }
     catch (...)
     {
@@ -281,18 +250,5 @@ void app_settings::set_gpt_sovits_settings(const gpt_sovits_settings& value)
 
 std::wstring app_settings::get_config_path() const
 {
-    const std::wstring app_data = get_app_data_path();
-    if (app_data.empty())
-    {
-        return {};
-    }
-
-    const std::wstring directory = app_data + L"\\VoiceLink";
-    if (!CreateDirectoryW(directory.c_str(), nullptr) &&
-        GetLastError() != ERROR_ALREADY_EXISTS)
-    {
-        return {};
-    }
-
-    return directory + L"\\config.json";
+    return storage_system::get_config_path(true);
 }
