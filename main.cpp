@@ -34,6 +34,20 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
     stt_controller speech_controller(window, std::make_unique<sapi_engine>());
     window.set_voicevox_path(settings.get_voicevox_path());
     controller.set_voicevox_path(settings.get_voicevox_path());
+    controller.set_engine_type(
+        settings.get_tts_engine_type() == app_settings::tts_engine_type::gpt_sovits
+    );
+
+    const app_settings::gpt_sovits_settings& saved_gpt_settings =
+        settings.get_gpt_sovits_settings();
+    gpt_sovits_engine::settings gpt_settings;
+    gpt_settings.host = saved_gpt_settings.host;
+    gpt_settings.port = saved_gpt_settings.port;
+    gpt_settings.reference_audio_path = saved_gpt_settings.reference_audio_path;
+    gpt_settings.prompt_text = saved_gpt_settings.prompt_text;
+    gpt_settings.prompt_language = saved_gpt_settings.prompt_language;
+    gpt_settings.text_language = saved_gpt_settings.text_language;
+    controller.set_gpt_sovits_settings(gpt_settings);
 
     window.set_voicevox_path_callback([&](const std::wstring& path)
     {
