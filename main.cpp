@@ -64,6 +64,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
 
     window.set_engine_changed_callback([&](int engine_index)
     {
+        const app_settings::tts_engine_type previous_engine = settings.get_tts_engine_type();
         settings.set_tts_engine_type(
             engine_index == 1
                 ? app_settings::tts_engine_type::gpt_sovits
@@ -71,6 +72,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
         );
         if (!settings.save())
         {
+            settings.set_tts_engine_type(previous_engine);
+            window.set_selected_engine(
+                previous_engine == app_settings::tts_engine_type::gpt_sovits ? 1 : 0
+            );
             window.set_status(L"設定ファイルを保存できませんでした。");
             return;
         }
@@ -90,9 +95,12 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
             saved.prompt_language = value.prompt_language;
             saved.text_language = value.text_language;
 
+            const app_settings::gpt_sovits_settings previous_settings =
+                settings.get_gpt_sovits_settings();
             settings.set_gpt_sovits_settings(saved);
             if (!settings.save())
             {
+                settings.set_gpt_sovits_settings(previous_settings);
                 window.set_status(L"GPT-SoVITS 設定を保存できませんでした。");
                 return;
             }
