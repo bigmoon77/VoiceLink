@@ -35,6 +35,8 @@ public:
     void append_recognized_text(const std::wstring& text);
     void set_reconnect_enabled(bool enabled);
     void set_voicevox_path_enabled(bool enabled);
+    void set_selected_engine(int engine_index);
+    int get_selected_engine() const;
     void set_volume(int volume);
     void set_voicevox_path(const std::wstring& path);
     std::wstring get_voicevox_path() const;
@@ -48,6 +50,7 @@ public:
     void set_volume_callback(std::function<void(int)> callback);
     void set_volume_test_callback(std::function<void()> callback);
     void set_voicevox_path_callback(std::function<void(const std::wstring&)> callback);
+    void set_engine_changed_callback(std::function<void(int)> callback);
     void set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback);
     void set_speech_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback);
     HWND get_handle() const;
@@ -57,6 +60,8 @@ private:
 
     enum control_id
     {
+        engine_select_label_id = 1000,
+        engine_select_combo_id,
         speaker_label_id = 1001,
         speaker_combo_id,
         reconnect_button_id,
@@ -87,6 +92,8 @@ private:
 
     HINSTANCE _instance = nullptr;
     HWND _window = nullptr;
+    HWND _engine_select_label = nullptr;
+    HWND _engine_select_combo = nullptr;
     HWND _engine_path_label = nullptr;
     HWND _engine_path_edit = nullptr;
     HWND _engine_path_browse_button = nullptr;
@@ -112,6 +119,7 @@ private:
     std::function<void(int)> _volume_callback;
     std::function<void()> _volume_test_callback;
     std::function<void(const std::wstring&)> _voicevox_path_callback;
+    std::function<void(int)> _engine_changed_callback;
     std::function<bool(UINT, WPARAM, LPARAM)> _message_callback;
     std::function<bool(UINT, WPARAM, LPARAM)> _speech_message_callback;
 };
