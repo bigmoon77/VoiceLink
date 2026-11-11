@@ -405,6 +405,11 @@ void training_window::load_training_samples()
         {
             const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
             if (!storage_system::read_utf8_text(text_path, sample.text)) continue;
+
+            if (storage_system::write_training_sample_text_atomic(sample.wav_path, sample.text))
+            {
+                DeleteFileW(text_path.c_str());
+            }
         }
         _samples.push_back(std::move(sample));
     } while (FindNextFileW(find_handle, &find_data));
