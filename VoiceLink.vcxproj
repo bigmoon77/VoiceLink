@@ -127,7 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="storage_system.cpp" />\n    <ClCompile Include="main.cpp" />
     <ClCompile Include="app_settings.cpp" />
     <ClCompile Include="main_window.cpp" />
     <ClCompile Include="text_to_speech\voicevox_engine.cpp" />
@@ -141,7 +141,7 @@
     <ClCompile Include="speech_to_text\training_window.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="main_window.h" />
+    <ClInclude Include="storage_system.h" />\n    <ClInclude Include="main_window.h" />
     <ClInclude Include="app_settings.h" />
     <ClInclude Include="text_to_speech\voicevox_engine.h" />
     <ClInclude Include="text_to_speech\gpt_sovits_engine.h" />
