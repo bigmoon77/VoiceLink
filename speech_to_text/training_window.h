@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "audio_recorder.h"
+#include "../storage_system.h"
 #include "speech_recognition_engine.h"
 #include "../text_to_speech/audio_player.h"
 
@@ -79,12 +80,6 @@ private:
     void submit_all_samples_for_adaptation();
     std::wstring get_correction_text() const;
     bool save_training_text(const std::wstring& text) const;
-    bool get_sample_directory(std::wstring& directory, bool create) const;
-    bool read_file(const std::wstring& path, std::vector<std::uint8_t>& data) const;
-    bool write_file(const std::wstring& path, const std::vector<std::uint8_t>& data) const;
-    bool read_utf8_text(const std::wstring& path, std::wstring& text) const;
-    bool write_utf8_text(const std::wstring& path, const std::wstring& text) const;
-    std::wstring create_sample_base_name(const std::wstring& directory) const;
     void apply_font(HWND control);
 
     HWND _parent = nullptr;
