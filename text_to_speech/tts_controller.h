@@ -4,6 +4,7 @@
 #include "../main_window.h"
 #include "tts_engine.h"
 #include "voicevox_process.h"
+#include "gpt_sovits_engine.h"
 
 #include <Windows.h>
 
@@ -26,6 +27,8 @@ public:
 
     void initialize_async();
     void set_voicevox_path(const std::wstring& path);
+    void set_engine_type(bool use_gpt_sovits);
+    void set_gpt_sovits_settings(const gpt_sovits_engine::settings& value);
 
 private:
     static constexpr UINT speakers_ready_message = WM_APP + 1;
@@ -53,6 +56,8 @@ private:
     std::unique_ptr<tts_engine> _engine;
     voicevox_process _voicevox_process;
     std::wstring _voicevox_path;
+    bool _use_gpt_sovits = false;
+    gpt_sovits_engine::settings _gpt_sovits_settings;
     std::thread _worker;
     std::atomic<bool> _busy{ false };
     std::mutex _result_mutex;
