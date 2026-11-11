@@ -11,11 +11,13 @@ namespace
 {
     std::atomic<unsigned long long> temporary_counter{ 0 };
 
+    // 想定頻度: UTF-8テキスト読み込み1回につき1回。
     bool has_utf8_bom(const std::vector<std::uint8_t>& data)
     {
         return data.size() >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF;
     }
 
+    // 想定頻度: テキスト書き込み・履歴追記・WAVメタデータ生成時。各操作につき1回。
     bool encode_utf8(const std::wstring& text, std::vector<std::uint8_t>& data, bool bom)
     {
         if (text.size() > static_cast<std::size_t>(INT_MAX)) return false;
@@ -35,6 +37,7 @@ namespace
         return true;
     }
 
+    // 想定頻度: 一時ファイル作成またはロック名生成時。保存操作1回につき1回。
     std::wstring make_unique_suffix()
     {
         const unsigned long long count = ++temporary_counter;
@@ -45,6 +48,7 @@ namespace
 
     constexpr std::uint32_t training_text_chunk_version = 1;
 
+    // 想定頻度: RIFFチャンク走査時。WAV内チャンク数に比例して複数回。
     std::uint32_t read_u32_le(const std::vector<std::uint8_t>& data, std::size_t offset)
     {
         return static_cast<std::uint32_t>(data[offset]) |
@@ -53,6 +57,7 @@ namespace
             (static_cast<std::uint32_t>(data[offset + 3]) << 24);
     }
 
+    // 想定頻度: WAVのvtxtチャンク生成時に2回。
     void append_u32_le(std::vector<std::uint8_t>& data, std::uint32_t value)
     {
         data.push_back(static_cast<std::uint8_t>(value));
@@ -61,6 +66,7 @@ namespace
         data.push_back(static_cast<std::uint8_t>(value >> 24));
     }
 
+    // 想定頻度: vtxtチャンクを含むWAVの読み込み時に1回。
     bool decode_utf8(const std::uint8_t* data, std::size_t size, std::wstring& text)
     {
         if (size == 0)
@@ -83,6 +89,7 @@ namespace
         ) == count;
     }
 
+    // 想定頻度: 保存済みサンプルのテキスト取得時にWAV1件につき1回。
     storage_system::training_text_state extract_training_text(
         const std::vector<std::uint8_t>& wav,
         std::wstring& text
@@ -132,6 +139,7 @@ namespace
         return found ? state::found : state::missing;
     }
 
+    // 想定頻度: サンプル保存・テキスト更新時にWAV1件につき1回。
     bool embed_training_text(
         const std::vector<std::uint8_t>& source,
         const std::wstring& text,
@@ -197,6 +205,7 @@ namespace
         return true;
     }
 
+    // 想定頻度: ファイル書き込み操作1回につき1回。大容量データでは内部ループ。
     bool write_all(HANDLE file, const std::vector<std::uint8_t>& data)
     {
         std::size_t offset = 0;
@@ -213,6 +222,7 @@ namespace
     }
 }
 
+// 想定頻度: 保存先ディレクトリ取得時。1回の取得で最大2回。
 bool storage_system::ensure_directory(const std::wstring& path)
 {
     if (CreateDirectoryW(path.c_str(), nullptr)) return true;
@@ -221,6 +231,7 @@ bool storage_system::ensure_directory(const std::wstring& path)
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
+// 想定頻度: 起動時・各保存先アクセス時に数回。
 std::wstring storage_system::get_directory_path(directory value, bool create)
 {
     const DWORD required = GetEnvironmentVariableW(L"APPDATA", nullptr, 0);
@@ -253,18 +264,21 @@ std::wstring storage_system::get_directory_path(directory value, bool create)
     return path;
 }
 
+// 想定頻度: 起動時と設定保存時に各1回程度。
 std::wstring storage_system::get_config_path(bool create)
 {
     const std::wstring root = get_directory_path(directory::root, create);
     return root.empty() ? std::wstring{} : root + L"\\config.json";
 }
 
+// 想定頻度: トレーニング画面表示時・認識結果保存時。
 std::wstring storage_system::get_training_history_path(bool create)
 {
     const std::wstring root = get_directory_path(directory::root, create);
     return root.empty() ? std::wstring{} : root + L"\\sapi_training.txt";
 }
 
+// 想定頻度: サンプル読み込み・再生・一括適応時。対象ファイル数に比例。
 bool storage_system::read_binary(const std::wstring& path, std::vector<std::uint8_t>& data)
 {
     HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -288,6 +302,7 @@ bool storage_system::read_binary(const std::wstring& path, std::vector<std::uint
     return success;
 }
 
+// 想定頻度: WAV保存時に1回。内部の一時ファイル書き込みにも使用。
 bool storage_system::write_binary_exclusive(const std::wstring& path, const std::vector<std::uint8_t>& data)
 {
     HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -298,11 +313,13 @@ bool storage_system::write_binary_exclusive(const std::wstring& path, const std:
     return success;
 }
 
+// 想定頻度: 呼び出し側が新規ファイル作成を要求した場合のみ。
 bool storage_system::write_binary_new(const std::wstring& path, const std::vector<std::uint8_t>& data)
 {
     return write_binary_exclusive(path, data);
 }
 
+// 想定頻度: WAV内テキスト更新時に1回。
 bool storage_system::write_binary_atomic(const std::wstring& path, const std::vector<std::uint8_t>& data)
 {
     const std::wstring temporary = path + L"." + make_unique_suffix() + L".tmp";
@@ -317,6 +334,7 @@ bool storage_system::write_binary_atomic(const std::wstring& path, const std::ve
     return moved;
 }
 
+// 想定頻度: 起動時の履歴読み込みと旧形式サンプル移行時。対象ファイル数に比例。
 bool storage_system::read_utf8_text(const std::wstring& path, std::wstring& text)
 {
     std::vector<std::uint8_t> data;
@@ -332,6 +350,7 @@ bool storage_system::read_utf8_text(const std::wstring& path, std::wstring& text
         reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), text.data(), count) == count;
 }
 
+// 想定頻度: 汎用UTF-8テキスト保存時のみ。現行サンプル保存経路では未使用。
 bool storage_system::write_utf8_text_atomic(const std::wstring& path, const std::wstring& text)
 {
     std::vector<std::uint8_t> data;
@@ -348,6 +367,7 @@ bool storage_system::write_utf8_text_atomic(const std::wstring& path, const std:
     return moved;
 }
 
+// 想定頻度: 認識結果の確定ごとに最大1回。
 bool storage_system::append_utf8_text(const std::wstring& path, const std::wstring& text, bool bom)
 {
     std::vector<std::uint8_t> data;
@@ -386,6 +406,7 @@ bool storage_system::append_utf8_text(const std::wstring& path, const std::wstri
 }
 
 
+// 想定頻度: サンプル一覧読み込み・一括適応時にサンプル1件あたり1回。
 storage_system::training_text_state storage_system::read_training_sample_text(
     const std::wstring& wav_path,
     std::wstring& text
@@ -396,6 +417,7 @@ storage_system::training_text_state storage_system::read_training_sample_text(
     return extract_training_text(wav_data, text);
 }
 
+// 想定頻度: テキスト編集時に1回。旧形式の自動移行時にも最大1回。
 bool storage_system::write_training_sample_text_atomic(
     const std::wstring& wav_path,
     const std::wstring& text
@@ -411,6 +433,7 @@ bool storage_system::write_training_sample_text_atomic(
     return write_binary_atomic(wav_path, updated_data);
 }
 
+// 想定頻度: ユーザーが録音サンプルを保存する操作ごとに1回。
 bool storage_system::save_training_sample(
     const std::vector<std::uint8_t>& wav_data,
     const std::wstring& text,
