@@ -12,6 +12,9 @@
     <Filter Include="Text to Speech">
       <UniqueIdentifier>{A7D51A43-2F63-4C19-8E79-51B9B6C6E7A1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Speech to Text">
+      <UniqueIdentifier>{C8C8E7B7-6BA1-4B87-8B49-0F97A5FBA3D4}</UniqueIdentifier>
+    </Filter>
     <Filter Include="リソース ファイル">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
@@ -29,6 +32,15 @@
     </ClCompile>
     <ClCompile Include="main_window.cpp">
       <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="speech_to_text\audio_recorder.cpp">
+      <Filter>Speech to Text</Filter>
+    </ClCompile>
+    <ClCompile Include="speech_to_text\reazonspeech_engine.cpp">
+      <Filter>Speech to Text</Filter>
+    </ClCompile>
+    <ClCompile Include="speech_to_text\speech_recognition_window.cpp">
+      <Filter>Speech to Text</Filter>
     </ClCompile>
     <ClCompile Include="text_to_speech\gpt_sovits_engine.cpp">
       <Filter>Text to Speech</Filter>
@@ -58,6 +70,15 @@
     </ClInclude>
     <ClInclude Include="app_settings.h">
       <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="speech_to_text\audio_recorder.h">
+      <Filter>Speech to Text</Filter>
+    </ClInclude>
+    <ClInclude Include="speech_to_text\reazonspeech_engine.h">
+      <Filter>Speech to Text</Filter>
+    </ClInclude>
+    <ClInclude Include="speech_to_text\speech_recognition_window.h">
+      <Filter>Speech to Text</Filter>
     </ClInclude>
     <ClInclude Include="text_to_speech\gpt_sovits_engine.h">
       <Filter>Text to Speech</Filter>

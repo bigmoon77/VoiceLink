@@ -6,9 +6,9 @@
 ## 1. システム概要
 
 VoiceLink は Windows 上で動作する音声入出力アプリケーションです。
-現在は VOICEVOX / GPT-SoVITS による音声合成と再生を中心に開発します。音声認識機能は開発対象から除外し、SAPI 依存コードを撤去しました。将来 STT を再導入する場合は、別エンジンを新規評価します。
+現在は VOICEVOX / GPT-SoVITS による音声合成と再生、および ReazonSpeech k2-v2 によるローカル音声認識を実装します。SAPI 依存コードは撤去済みです。
 
-VOICEVOX と GPT-SoVITS を利用した Text-to-Speech の変換・再生機能を実装済みです。
+VOICEVOX と GPT-SoVITS を利用した Text-to-Speech の変換・再生機能、および ReazonSpeech k2-v2 を利用した音声認識機能を実装しています。ビルド・実機でのマイク認識確認は未完了です。
 
 ### 1.1 初期リリースの最低限の機能要件
 
@@ -51,6 +51,12 @@ VoiceLink (Application)
     +-- VoiceLink.Audio
     |      +-- audio_player
     |
+    +-- VoiceLink.STT
+    |      +-- speech_recognition_window
+    |      +-- audio_recorder (WinMM waveIn)
+    |      +-- reazonspeech_engine (sherpa-onnx C API)
+    |      +-- ReazonSpeech k2-v2 INT8 model
+    |
     +-- voicevox_process
     |      +-- Engine path discovery / process ownership
     +-- [Future] VoiceLink.Browser
@@ -63,7 +69,7 @@ Chrome Extension
 
 ## 2. プロジェクト構成案
 
-現在は単一の Visual Studio アプリケーションプロジェクトです。Text-to-Speech 関連のソースを `text_to_speech/` にまとめ、アプリケーション共通の GUI・設定・エントリーポイントと分離しています。TTS / Audio はディレクトリ単位で責務を分離し、現在も同じアプリケーションプロジェクトに含めます。
+現在は単一の Visual Studio アプリケーションプロジェクトです。Text-to-Speech 関連のソースを `text_to_speech/`、音声認識関連のソースを `speech_to_text/` にまとめ、アプリケーション共通の GUI・設定・エントリーポイントと分離しています。TTS / STT / Audio はディレクトリ単位で責務を分離し、同じアプリケーションプロジェクトに含めます。
 
 ```text
 VoiceLink/
@@ -76,6 +82,12 @@ VoiceLink/
 ├── app_settings.h / .cpp
 ├── storage_system.h / .cpp
 ├── main_window.h / .cpp
+├── speech_to_text/
+│   ├── speech_recognition_window.h / .cpp
+│   ├── audio_recorder.h / .cpp
+│   └── reazonspeech_engine.h / .cpp
+├── tools/
+│   └── setup_reazonspeech.ps1
 ├── text_to_speech/
 │   ├── tts_controller.h / .cpp
 │   ├── tts_engine.h
@@ -85,7 +97,7 @@ VoiceLink/
 │   └── audio_player.h / .cpp
 ```
 
-TTS / Audio は現在も単一のアプリケーションプロジェクト内にあります。別プロジェクトや静的ライブラリへの分割は現行方針に含めません。
+TTS / STT / Audio は現在も単一のアプリケーションプロジェクト内にあります。別プロジェクトや静的ライブラリへの分割は現行方針に含めません。
 `storage_system` はアプリケーション共通のユーザーデータ保存窓口です。保存先の解決、ディレクトリ作成、読み書き、一時ファイル、ファイル名の競合回避を担当します。
 
 VOICEVOX Engine は別プロセスとして起動し、HTTP API で接続します。
@@ -252,7 +264,55 @@ GUI と TTS / Audio の間を仲介するクラスです。実装ファイルは
 
 同時に複数の合成要求を実行せず、処理中は再生ボタンを無効化します。UI コントロールの操作は UI スレッド上で行います。
 
-### 3.2 VoiceLink.TTS
+### 3.2 VoiceLink.STT
+
+**責務**
+- マイクから音声を録音し、日本語音声をローカルで文字列へ変換する。
+- 録音、推論、認識 UI を分離する。
+- SAPI には依存しない。
+
+#### `audio_recorder`
+
+WinMM `waveIn` を利用する録音クラスです。
+
+- 入力形式は 16 kHz / mono / PCM16。
+- `CALLBACK_WINDOW` で録音バッファの完了をウィンドウメッセージとして受け取り、再登録する。
+- PCM16 を -1.0 ～ 1.0 の float サンプルへ変換する。
+- 最大録音時間は25秒。ReazonSpeech k2-v2 の入力上限（約30秒）を超えないよう余裕を持たせる。
+- 録音バッファの停止・リセット・解放を UI スレッド上で完了させる。
+
+#### `reazonspeech_engine`
+
+sherpa-onnx C API を動的ロードし、ReazonSpeech k2-v2 を実行するクラスです。
+
+- sherpa-onnx v2.0.1 の Windows x64 shared MD Release DLL を使用する。
+- ReazonSpeech k2-v2 の INT8 Zipformer Transducer モデルを使用する。
+- モデルファイルは `models/reazonspeech-k2-v2/`、DLL は `third_party/sherpa-onnx/` に配置する。
+- CPU provider、4スレッド、greedy search でオフライン認識する。GPU は使用しない。
+- sherpa-onnx の DLL は `LoadLibraryExW` で遅延ロードし、C API 関数を `GetProcAddress` で取得する。
+- 入力音声を OfflineStream へ一度だけ渡し、推論後に UTF-8 の認識結果を UTF-16 へ変換する。
+- x64 ビルドのみ対応する。Win32 ビルドでは未対応エラーを返す。
+
+#### `speech_recognition_window`
+
+音声認識用の独立した Win32 ウィンドウです。
+
+- 初回表示時にモデルをワーカースレッドで初期化する。
+- 録音開始・停止ボタンでマイク音声を取得し、停止後に別ワーカースレッドで推論する。
+- 認識結果は編集可能な複数行 Edit に表示する。
+- 「読み上げ欄へ反映」でメインウィンドウの TTS 入力欄へ認識結果を渡す。
+- モデル初期化と推論中は UI スレッドをブロックしない。
+- 録音は最大25秒。ストリーミング認識ではなく、発話終了後に一括で推論する。
+
+#### 依存ライブラリ・モデルの取得
+
+- sherpa-onnx: v2.0.1 Windows x64 shared MD Release（TTS 無効）。
+- ReazonSpeech k2-v2: INT8 encoder / decoder / joiner と `tokens.txt`。
+- 取得スクリプト: `tools/setup_reazonspeech.ps1`。
+- 依存バイナリとモデル本体は容量が大きいため Git 管理対象外とする。各開発環境でスクリプトを実行して取得する。
+- sherpa-onnx と ReazonSpeech k2-v2 のライセンスは Apache-2.0。
+
+### 3.3 VoiceLink.TTS
 
 **責務**
 - 音声合成エンジンの共通インターフェースを提供する。
@@ -336,7 +396,7 @@ VOICEVOX Engine の起動・終了は voicevox_process が管理します。GUI 
 - GPT-SoVITS は単一の仮想スタイルを返すため、VOICEVOX の話者一覧 UI は共通インターフェース維持用の選択肢として表示されます。
 - API プロセスの起動・終了は VoiceLink から管理せず、外部で起動済みの API に接続します。
 
-### 3.3 VoiceLink.Audio
+### 3.4 VoiceLink.Audio
 
 **責務**
 - WAV データを受け取り、音声として再生する。
@@ -375,11 +435,27 @@ Audio は TTS の HTTP 通信や JSON 解析へ依存しません。
 
 取得した WAV は共通の `audio_player` へ渡します。
 
+### 4.3 音声認識
+
+1. メインウィンドウの「音声認識」ボタンから `speech_recognition_window` を開く。
+2. 初回表示時に `reazonspeech_engine` が sherpa-onnx DLL と INT8 モデルをワーカースレッドで初期化する。
+3. 「録音開始」で `audio_recorder` が WinMM `waveIn` を開始し、16 kHz / mono / PCM16 の入力を float サンプルへ変換する。
+4. 「録音停止」または25秒経過で録音を終了する。
+5. `reazonspeech_engine` が OfflineStream へ音声全体を渡し、CPU で一括推論する。
+6. UTF-8 の認識結果を UTF-16 へ変換して UI に表示する。
+7. ユーザーが必要に応じて結果を編集し、「読み上げ欄へ反映」でメインウィンドウのテキスト入力欄へ渡す。
+
+モデルはオフライン認識専用のため、録音中の逐次テキスト更新は行いません。
+
 ## 5. 依存関係のルール
 
 | 呼び出し元 | 依存先 | 方針 |
 |---|---|---|
-| VoiceLink / main_window | tts_controller | GUI の入力と非同期結果を仲介する |
+| VoiceLink / main_window | tts_controller | TTS GUI の入力と非同期結果を仲介する |
+| VoiceLink / main_window | speech_recognition_window | 音声認識ウィンドウの表示と認識結果の反映 |
+| speech_recognition_window | audio_recorder | マイク録音と PCM サンプルの取得 |
+| speech_recognition_window | reazonspeech_engine | モデル初期化と非同期推論 |
+| reazonspeech_engine | sherpa-onnx C API | OfflineStream を使った音声認識 |
 | tts_controller | tts_engine | 抽象インターフェース経由で合成を依頼する |
 | tts_controller | audio_player | WAV データを渡して再生を依頼する |
 | VoiceLink.TTS | HTTP クライアント / JSON ライブラリ | VOICEVOX 通信の内部実装として利用する |
@@ -391,11 +467,11 @@ Audio は TTS の HTTP 通信や JSON 解析へ依存しません。
 
 ## 6. 将来機能の設計方針
 
-### 6.1 音声認識: 開発対象外
+### 6.1 SAPI の撤去
 
-Windows 音声認識（WSR）は Microsoft により非推奨化され、Windows 11 22H2 以降では音声アクセスへ置き換えられています。SAPI 全体の廃止が告知されたわけではありませんが、VoiceLink では認識精度と保守性を考慮して SAPI 認識機能を撤去しました。
+VoiceLink では SAPI による音声認識・学習機能を撤去しました。SAPI 認識エンジン、旧 STT コントローラー、旧音声認識インターフェース、旧録音・訂正履歴・サンプル管理・適応処理は現行構成に含めません。
 
-撤去対象は SAPI 認識エンジン、STT コントローラー、音声認識インターフェース、マイク録音、認識 UI、訂正履歴、音声サンプル管理、SAPI 適応処理です。将来 STT が必要になった場合は SAPI を再利用せず、別エンジンの精度・動作環境・ライセンスを評価してから新規設計します。
+現在の音声認識は 3.2 節の ReazonSpeech k2-v2 と sherpa-onnx を使用します。新規コードへ SAPI を追加しません。
 
 ### 6.2 ChatGPT Web 連携
 
@@ -419,6 +495,9 @@ Windows 音声認識（WSR）は Microsoft により非推奨化され、Windows
 - 指定した話者・スタイルが存在しない。
 - WAV データが空、または不正である。
 - 音声デバイスの初期化・再生に失敗する。
+- マイクを開けない、録音バッファを登録できない、または録音を停止できない。
+- sherpa-onnx DLL / ONNX Runtime DLL / ReazonSpeech モデルが見つからない、または読み込めない。
+- ReazonSpeech の推論に失敗する、録音時間が短すぎる、またはモデルの入力長を超える。
 
 エラーの詳細を保持し、アプリケーション側でログ表示やユーザー通知を行える設計にします。
 
@@ -433,7 +512,7 @@ Windows 音声認識（WSR）は Microsoft により非推奨化され、Windows
 | HTTP クライアント | **決定: WinHTTP** | Windows 標準 API を利用 |
 | JSON パーサー | **決定: Windows.Data.Json (C++/WinRT)** | Windows SDK の JSON API を利用 |
 | 音声再生 API | **初期実装: WinMM PlaySoundW** | WAV メモリ再生。高度な制御が必要になれば XAudio2 等を検討 |
-| 音声認識 API | **開発対象外** | SAPI 依存実装を撤去。再導入時は別エンジンを評価 |
+| 音声認識 API | **決定: sherpa-onnx C API + ReazonSpeech k2-v2** | Windows x64、CPU INT8、OfflineStream による最大25秒の一括認識 |
 | TTS の戻り値形式 | `bool` + WAV バイト列 + エラー文字列 | `tts_engine` の共通インターフェースで統一 |
 | 話者・スタイル型 | `tts_engine::speaker_style` | 話者名、スタイル名、speaker ID を保持 |
 | 設定保存形式 | **決定: JSON (`%APPDATA%\\VoiceLink\\config.json`)** | 選択中のエンジン、VOICEVOX の実行ファイルパス、GPT-SoVITS の接続先・参照音声・参照テキスト・言語設定を保存 |
@@ -452,8 +531,11 @@ Windows 音声認識（WSR）は Microsoft により非推奨化され、Windows
 - GPT-SoVITS 設定欄から接続先、参照音声、参照テキスト、参照言語、生成言語を編集・保存し、設定反映後に再接続する。
 - GUI から `run.exe` のパスを指定でき、同じ設定ファイルに保存する。
 - Text-to-Speech 関連ソースは `text_to_speech/` に配置し、単一のアプリケーションプロジェクトに含める。
-- SAPI 音声認識・トレーニング機能は開発対象外とし、関連ソース・GUI・ストレージ処理を撤去。
-- Windows / MSVC でのビルド・TTS 実機テストは未確認。
+- SAPI 音声認識・トレーニング機能は撤去済み。`speech_to_text/` に WinMM 録音、sherpa-onnx C API、ReazonSpeech k2-v2 の認識 UI を追加。
+- `tools/setup_reazonspeech.ps1` で sherpa-onnx v2.0.1 Windows x64 DLL と ReazonSpeech k2-v2 INT8 モデルを取得する。DLL・モデル本体は Git 管理対象外。
+- ReazonSpeech の音声認識は CPU で動作し、録音は最大25秒。モデル初期化・推論はワーカースレッドで実行する。
+- sherpa-onnx CLI による公式テスト音声の認識確認済み。VoiceLink アプリのビルド・マイク録音・UI 経由の認識テストは未確認。
+- Windows / MSVC での VoiceLink アプリのビルド・TTS 実機テストは未確認。ReazonSpeech は sherpa-onnx CLI で公式テスト音声の認識を確認済み。
 
 ## 10. 更新ルール
 

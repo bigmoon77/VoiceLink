@@ -1,5 +1,6 @@
 ﻿#include "app_settings.h"
 #include "main_window.h"
+#include "speech_to_text/speech_recognition_window.h"
 #include "text_to_speech/tts_controller.h"
 
 #include <winrt/base.h>
@@ -12,6 +13,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
     settings.load();
 
     main_window window;
+    speech_recognition_window speech_window;
 
     if (!window.create(instance, show_command))
     {
@@ -24,6 +26,21 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
         winrt::uninit_apartment();
         return 1;
     }
+
+    window.set_speech_recognition_callback([&]()
+    {
+        if (!speech_window.show(
+            instance,
+            window.get_handle(),
+            [&](const std::wstring& text)
+            {
+                window.set_text(text);
+            }
+        ))
+        {
+            window.set_status(L"音声認識ウィンドウを開けませんでした。");
+        }
+    });
 
     audio_player player;
     tts_controller controller(window, player);
@@ -135,6 +152,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
         DispatchMessageW(&message);
     }
 
+    speech_window.close();
     winrt::uninit_apartment();
     return static_cast<int>(message.wParam);
 }

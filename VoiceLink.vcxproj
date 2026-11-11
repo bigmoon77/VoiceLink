@@ -74,7 +74,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;VOICE_LINK_SOLUTION_DIR=L&quot;$(SolutionDir).&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;VOICE_LINK_SOLUTION_DIR=L&quot;$([System.String]::Copy('$(SolutionDir)').Replace('\','/')).&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -89,7 +89,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;VOICE_LINK_SOLUTION_DIR=L&quot;$([System.String]::Copy('$(SolutionDir)').Replace('\','/')).&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -102,7 +102,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;VOICE_LINK_SOLUTION_DIR=L&quot;$(SolutionDir).&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;VOICE_LINK_SOLUTION_DIR=L&quot;$([System.String]::Copy('$(SolutionDir)').Replace('\','/')).&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -117,7 +117,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;VOICE_LINK_SOLUTION_DIR=L&quot;$([System.String]::Copy('$(SolutionDir)').Replace('\','/')).&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -131,6 +131,9 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="app_settings.cpp" />
     <ClCompile Include="main_window.cpp" />
+    <ClCompile Include="speech_to_text\audio_recorder.cpp" />
+    <ClCompile Include="speech_to_text\reazonspeech_engine.cpp" />
+    <ClCompile Include="speech_to_text\speech_recognition_window.cpp" />
     <ClCompile Include="text_to_speech\voicevox_engine.cpp" />
     <ClCompile Include="text_to_speech\gpt_sovits_engine.cpp" />
     <ClCompile Include="text_to_speech\audio_player.cpp" />
@@ -142,6 +145,9 @@
     <ClInclude Include="storage_system.h" />
     <ClInclude Include="main_window.h" />
     <ClInclude Include="app_settings.h" />
+    <ClInclude Include="speech_to_text\audio_recorder.h" />
+    <ClInclude Include="speech_to_text\reazonspeech_engine.h" />
+    <ClInclude Include="speech_to_text\speech_recognition_window.h" />
     <ClInclude Include="text_to_speech\voicevox_engine.h" />
     <ClInclude Include="text_to_speech\gpt_sovits_engine.h" />
     <ClInclude Include="text_to_speech\audio_player.h" />

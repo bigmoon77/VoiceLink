@@ -354,6 +354,14 @@ std::wstring main_window::get_text() const
     return std::wstring(buffer.data(), static_cast<size_t>(std::max(copied, 0)));
 }
 
+void main_window::set_text(const std::wstring& text)
+{
+    if (_text_edit)
+    {
+        SetWindowTextW(_text_edit, text.c_str());
+    }
+}
+
 bool main_window::get_selected_speaker_id(int& speaker_id) const
 {
     if (!_speaker_combo)
@@ -418,6 +426,11 @@ void main_window::set_gpt_sovits_settings_callback(
 )
 {
     _gpt_sovits_settings_callback = std::move(callback);
+}
+
+void main_window::set_speech_recognition_callback(std::function<void()> callback)
+{
+    _speech_recognition_callback = std::move(callback);
 }
 
 void main_window::set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback)
@@ -486,6 +499,13 @@ LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param
             if (HIWORD(w_param) == BN_CLICKED && _play_callback)
             {
                 _play_callback();
+            }
+            return 0;
+
+        case speech_recognition_button_id:
+            if (HIWORD(w_param) == BN_CLICKED && _speech_recognition_callback)
+            {
+                _speech_recognition_callback();
             }
             return 0;
 
@@ -806,6 +826,13 @@ bool main_window::create_controls()
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(status_text_id)),
         _instance, nullptr
     );
+    _speech_recognition_button = CreateWindowExW(
+        0, L"BUTTON", L"音声認識",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(speech_recognition_button_id)),
+        _instance, nullptr
+    );
 
     const bool controls_created =
         _engine_select_label && _engine_select_combo &&
@@ -816,7 +843,7 @@ bool main_window::create_controls()
         _gpt_settings_apply_button && _engine_path_label && _engine_path_edit && _engine_path_browse_button &&
         _engine_path_apply_button && _speaker_label && _speaker_combo &&
         _reconnect_button && _text_label && _text_edit && _volume_label && _volume_slider &&
-        _volume_test_button && _play_button && _status_text;
+        _volume_test_button && _play_button && _status_text && _speech_recognition_button;
 
     if (!controls_created)
     {
@@ -865,6 +892,7 @@ bool main_window::create_controls()
     apply_control_font(_volume_test_button);
     apply_control_font(_play_button);
     apply_control_font(_status_text);
+    apply_control_font(_speech_recognition_button);
 
     const int gpt_control_ids[] = {
         gpt_host_label_id, gpt_host_edit_id, gpt_port_label_id, gpt_port_edit_id,
@@ -886,7 +914,7 @@ void main_window::layout_controls(int width, int height)
     if (!_engine_select_label || !_engine_select_combo || !_engine_path_label || !_engine_path_edit || !_engine_path_browse_button ||
         !_engine_path_apply_button || !_speaker_label || !_speaker_combo || !_reconnect_button ||
         !_text_label || !_text_edit || !_volume_label || !_volume_slider ||
-        !_volume_test_button || !_play_button || !_status_text)
+        !_volume_test_button || !_play_button || !_status_text || !_speech_recognition_button)
     {
         return;
     }
@@ -984,8 +1012,22 @@ void main_window::layout_controls(int width, int height)
         control_height,
         TRUE
     );
+    constexpr int speech_button_width = 110;
+    const int speech_button_x = width - margin - play_button_width - margin - speech_button_width;
+    MoveWindow(
+        _speech_recognition_button,
+        speech_button_x,
+        buttons_y,
+        speech_button_width,
+        control_height,
+        TRUE
+    );
+
     const int status_x = margin;
-    const int status_width = std::max(width - margin - play_button_width - margin - status_x, 80);
+    const int status_width = std::max(
+        speech_button_x - margin - status_x,
+        80
+    );
     MoveWindow(_status_text, status_x, status_y, status_width, label_height, TRUE);
 }
 

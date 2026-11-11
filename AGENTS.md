@@ -7,7 +7,7 @@
 
 VoiceLink は Windows 向けの音声合成・音声再生アプリケーションです。VOICEVOX と GPT-SoVITS を利用した読み上げ機能を提供します。
 
-音声認識機能は現在の開発対象から除外します。Windows 音声認識（WSR）の非推奨化と、SAPI 認識の精度・保守性を踏まえ、SAPI に依存する認識・学習機能を撤去しました。将来 STT を再導入する場合は、別エンジンを改めて評価します。
+音声認識には ReazonSpeech k2-v2 と sherpa-onnx を使用します。SAPI に依存する認識・学習機能は撤去済みです。認識処理はローカル CPU 上で動作し、WinMM で録音した最大25秒の音声をオフライン認識します。
 
 TTS、音声再生、ブラウザー連携は責務ごとに独立したモジュールとして実装します。
 
@@ -56,12 +56,17 @@ VOICEVOX を初期要件として維持しつつ、追加エンジンとして G
 - GPT-SoVITS は VOICEVOX の話者一覧を持たないため、共通インターフェースには参照音声を表す単一の仮想スタイルを返します。
 - 既存の VOICEVOX の起動管理・話者選択・合成動作を壊さないこと。
 
-### 2.3 音声認識機能: 開発対象外
+### 2.3 音声認識: ReazonSpeech k2-v2
 
-- Windows 音声認識（WSR）の非推奨化を踏まえ、SAPI による音声認識機能の開発を終了する。
-- SAPI 認識エンジン、認識 UI、録音サンプル管理、訂正履歴、適応処理を撤去する。
-- SAPI を新規コードへ追加しない。
-- 将来 STT が必要になった場合は、SAPI に依存しないエンジンを別途評価し、要件・精度・配布条件を確認してから設計する。
+- sherpa-onnx の C API を利用し、ReazonSpeech k2-v2 の INT8 Zipformer Transducer モデルで日本語音声を認識する。
+- 音声認識はローカル CPU で実行し、ネットワーク接続を必要としない。
+- WinMM の録音 API で 16 kHz / mono / PCM16 のマイク音声を取得する。
+- 初期 UI は録音開始・停止方式とし、最大録音時間は25秒とする。モデル自体の入力長制約に合わせる。
+- 認識モデルの初期化・推論は UI スレッド外で実行する。
+- 認識結果は編集可能なテキストとして表示し、読み上げ入力欄へ反映できるようにする。
+- sherpa-onnx の DLL とモデルファイルは `tools/setup_reazonspeech.ps1` で取得する。大容量のバイナリ・モデルは Git 管理対象に含めない。
+- SAPI 認識エンジン、認識 UI、録音サンプル管理、訂正履歴、適応処理は撤去済みとし、新規コードへ SAPI を追加しない。
+- sherpa-onnx は Apache-2.0、ReazonSpeech k2-v2 モデルも Apache-2.0 の配布条件を維持する。
 
 ### 2.4 最終目標: ChatGPT Web 連携
 
@@ -80,6 +85,7 @@ VOICEVOX を初期要件として維持しつつ、追加エンジンとして G
 | `VoiceLink` | アプリケーション本体。Win32 GUI、`tts_controller`、各モジュールの生成・接続、全体のライフサイクルを管理する |
 | `VoiceLink.TTS` | `tts_engine` インターフェースと各エンジンの実装。初期実装は VOICEVOX Engine (WinHTTP) |
 | `VoiceLink.Audio` | WAV 等の音声データの再生・停止。初期実装は WinMM `PlaySoundW` |
+| `VoiceLink.STT` | WinMM による録音と sherpa-onnx / ReazonSpeech k2-v2 によるローカル音声認識 |
 | `VoiceLink.Common` | 複数モジュールで共有する型、エラー表現、共通ユーティリティ。必要になった時点で追加する |
 | `VoiceLink.Browser` | 将来のブラウザー連携。Native Messaging Host 側の処理を担当する |
 | Chrome Extension | ChatGPT タブ・入力欄の検出と、Native Messaging Host から受け取ったテキストの反映 |
@@ -144,6 +150,7 @@ VOICEVOX を初期要件として維持しつつ、追加エンジンとして G
 - 既存の命名規則・フォーマットを維持する。
 - 新しい依存ライブラリを追加する場合は、採用理由とライセンスを確認する。
 - ユーザーデータの保存先・読み書きは `storage_system` に集約し、機能クラスで `%APPDATA%` や保存パスを直接組み立てない。
+- ReazonSpeech の依存ライブラリとモデルは `tools/setup_reazonspeech.ps1` でソリューション内へ配置する。依存バイナリとモデル本体は Git に追加しない。
 - 設計に変更が生じた場合は、`design.md` も更新する。
 - 未実装の機能を実装済みとして説明しない。
 

@@ -50,6 +50,7 @@ public:
     void set_voicevox_path(const std::wstring& path);
     std::wstring get_voicevox_path() const;
     std::wstring get_text() const;
+    void set_text(const std::wstring& text);
     bool get_selected_speaker_id(int& speaker_id) const;
     void set_play_callback(std::function<void()> callback);
     void set_reconnect_callback(std::function<void()> callback);
@@ -60,6 +61,7 @@ public:
     void set_gpt_sovits_settings_callback(
         std::function<void(const gpt_sovits_form_settings&)> callback
     );
+    void set_speech_recognition_callback(std::function<void()> callback);
     void set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback);
     HWND get_handle() const;
 
@@ -84,6 +86,7 @@ private:
         gpt_text_language_label_id,
         gpt_text_language_combo_id,
         gpt_settings_apply_button_id,
+        speech_recognition_button_id,
         speaker_label_id = 1001,
         speaker_combo_id,
         reconnect_button_id,
@@ -140,6 +143,7 @@ private:
     HWND _text_edit = nullptr;
     HWND _play_button = nullptr;
     HWND _status_text = nullptr;
+    HWND _speech_recognition_button = nullptr;
     HWND _volume_label = nullptr;
     HWND _volume_slider = nullptr;
     HWND _volume_test_button = nullptr;
@@ -150,5 +154,6 @@ private:
     std::function<void(const std::wstring&)> _voicevox_path_callback;
     std::function<void(int)> _engine_changed_callback;
     std::function<void(const gpt_sovits_form_settings&)> _gpt_sovits_settings_callback;
+    std::function<void()> _speech_recognition_callback;
     std::function<bool(UINT, WPARAM, LPARAM)> _message_callback;
 };
