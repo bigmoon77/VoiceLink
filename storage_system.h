@@ -22,7 +22,7 @@ public:
     static std::wstring get_training_history_path(bool create);
 
     static bool read_binary(const std::wstring& path, std::vector<std::uint8_t>& data);
-    static bool write_binary_new(const std::wstring& path, const std::vector<std::uint8_t>& data);
+    static bool write_binary_new(const std::wstring& path, const std::vector<std::uint8_t>& data);\n    static bool write_binary_atomic(const std::wstring& path, const std::vector<std::uint8_t>& data);
     static bool read_utf8_text(const std::wstring& path, std::wstring& text);
     static bool write_utf8_text_atomic(const std::wstring& path, const std::wstring& text);
     static bool append_utf8_text(const std::wstring& path, const std::wstring& text, bool bom);
