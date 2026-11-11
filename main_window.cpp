@@ -19,7 +19,7 @@ constexpr wchar_t main_window::_window_class_name[];
 namespace
 {
     constexpr int window_width = 760;
-    constexpr int window_height = 680;
+    constexpr int window_height = 740;
     constexpr int margin = 16;
     constexpr int control_height = 26;
     constexpr int label_height = 20;
@@ -185,6 +185,25 @@ void main_window::set_reconnect_enabled(bool enabled)
     }
 }
 
+void main_window::set_selected_engine(int engine_index)
+{
+    if (_engine_select_combo)
+    {
+        SendMessageW(_engine_select_combo, CB_SETCURSEL, engine_index == 1 ? 1 : 0, 0);
+    }
+}
+
+int main_window::get_selected_engine() const
+{
+    if (!_engine_select_combo)
+    {
+        return 0;
+    }
+
+    const LRESULT selected = SendMessageW(_engine_select_combo, CB_GETCURSEL, 0, 0);
+    return selected == 1 ? 1 : 0;
+}
+
 void main_window::set_voicevox_path(const std::wstring& path)
 {
     if (_engine_path_edit)
@@ -316,6 +335,11 @@ void main_window::set_voicevox_path_callback(std::function<void(const std::wstri
     _voicevox_path_callback = std::move(callback);
 }
 
+void main_window::set_engine_changed_callback(std::function<void(int)> callback)
+{
+    _engine_changed_callback = std::move(callback);
+}
+
 void main_window::set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback)
 {
     _message_callback = std::move(callback);
@@ -436,6 +460,13 @@ LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param
             }
             return 0;
 
+        case engine_select_combo_id:
+            if (HIWORD(w_param) == CBN_SELCHANGE && _engine_changed_callback)
+            {
+                _engine_changed_callback(get_selected_engine());
+            }
+            return 0;
+
         case engine_path_apply_button_id:
             if (HIWORD(w_param) == BN_CLICKED && _voicevox_path_callback)
             {
@@ -455,6 +486,28 @@ LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param
 
 bool main_window::create_controls()
 {
+    _engine_select_label = CreateWindowExW(
+        0, L"STATIC", L"TTS Engine",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(engine_select_label_id)),
+        _instance, nullptr
+    );
+
+    _engine_select_combo = CreateWindowExW(
+        0, L"COMBOBOX", L"",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(engine_select_combo_id)),
+        _instance, nullptr
+    );
+    if (_engine_select_combo)
+    {
+        SendMessageW(_engine_select_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"VOICEVOX"));
+        SendMessageW(_engine_select_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"GPT-SoVITS"));
+        SendMessageW(_engine_select_combo, CB_SETCURSEL, 0, 0);
+    }
+
     _engine_path_label = CreateWindowExW(
         0, L"STATIC", L"VOICEVOX Engine (run.exe)",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
@@ -593,7 +646,7 @@ bool main_window::create_controls()
     );
 
     const bool controls_created =
-        _engine_path_label && _engine_path_edit && _engine_path_browse_button &&
+        _engine_select_label && _engine_select_combo && _engine_path_label && _engine_path_edit && _engine_path_browse_button &&
         _engine_path_apply_button && _speaker_label && _speaker_combo &&
         _reconnect_button && _text_label && _text_edit && _volume_label && _volume_slider &&
         _volume_test_button && _play_button && _status_text &&
@@ -608,6 +661,8 @@ bool main_window::create_controls()
     SendMessageW(_volume_slider, TBM_SETPAGESIZE, 0, 10);
     SendMessageW(_volume_slider, TBM_SETPOS, TRUE, 100);
 
+    apply_control_font(_engine_select_label);
+    apply_control_font(_engine_select_combo);
     apply_control_font(_engine_path_label);
     apply_control_font(_engine_path_edit);
     apply_control_font(_engine_path_browse_button);
@@ -630,7 +685,7 @@ bool main_window::create_controls()
 
 void main_window::layout_controls(int width, int height)
 {
-    if (!_engine_path_label || !_engine_path_edit || !_engine_path_browse_button ||
+    if (!_engine_select_label || !_engine_select_combo || !_engine_path_label || !_engine_path_edit || !_engine_path_browse_button ||
         !_engine_path_apply_button || !_speaker_label || !_speaker_combo || !_reconnect_button ||
         !_text_label || !_text_edit || !_volume_label || !_volume_slider ||
         !_volume_test_button || !_play_button || !_status_text ||
@@ -644,14 +699,17 @@ void main_window::layout_controls(int width, int height)
     const int status_y = buttons_y + (control_height - label_height) / 2;
     const int volume_y = buttons_y - margin - control_height;
     const int volume_label_y = volume_y - label_height;
-    const int path_y = margin + label_height;
+    const int engine_select_y = margin + label_height;
+    const int path_y = engine_select_y + control_height + margin + label_height;
     const int path_button_total_width = path_button_width * 2 + margin;
     const int speaker_label_y = path_y + control_height + margin;
     const int edit_y = speaker_label_y + label_height + control_height + margin + label_height;
     const int edit_height = std::max(volume_label_y - margin - edit_y - margin, 60);
     const int speaker_combo_width = std::max(content_width - reconnect_button_width - margin, 80);
 
-    MoveWindow(_engine_path_label, margin, margin, content_width, label_height, TRUE);
+    MoveWindow(_engine_select_label, margin, margin, content_width, label_height, TRUE);
+    MoveWindow(_engine_select_combo, margin, engine_select_y, 220, control_height * 5, TRUE);
+    MoveWindow(_engine_path_label, margin, path_y - label_height, content_width, label_height, TRUE);
     MoveWindow(_engine_path_edit, margin, path_y, std::max(content_width - path_button_total_width - margin, 100), control_height, TRUE);
     MoveWindow(_engine_path_browse_button, width - margin - path_button_total_width, path_y, path_button_width, control_height, TRUE);
     MoveWindow(_engine_path_apply_button, width - margin - path_button_width, path_y, path_button_width, control_height, TRUE);
