@@ -1,6 +1,8 @@
 ﻿#include "storage_system.h"
 
 #include <algorithm>
+#include <climits>
+#include <cwchar>
 #include <atomic>
 #include <limits>
 
