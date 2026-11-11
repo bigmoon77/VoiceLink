@@ -397,7 +397,7 @@ void training_window::refresh_selected_record()
 void training_window::load_training_samples()
 {
     std::wstring directory;
-    directory = storage_system::get_directory_path(storage_system::directory::training_samples, true);
+    directory = storage_system::get_directory_path(storage_system::directory::training_samples, false);
     if (directory.empty()) return;
 
     const std::wstring search_path = directory + L"\\*.wav";
@@ -605,7 +605,7 @@ void training_window::submit_all_samples_for_adaptation()
 void training_window::open_sample_directory()
 {
     std::wstring directory;
-    if (!get_sample_directory(directory, true))
+    directory = storage_system::get_directory_path(storage_system::directory::training_samples, true);\n    if (directory.empty())
     {
         set_status(L"サンプル保存先フォルダーを作成できませんでした。");
         return;
