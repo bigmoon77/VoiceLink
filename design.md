@@ -78,7 +78,8 @@ VoiceLink/
 ├── AGENTS.md
 ├── design.md
 ├── main.cpp
-├── app_settings.h / .cpp\n├── storage_system.h / .cpp
+├── app_settings.h / .cpp
+├── storage_system.h / .cpp
 ├── main_window.h / .cpp
 ├── text_to_speech/
 │   ├── tts_controller.h / .cpp
@@ -96,7 +97,9 @@ VoiceLink/
 ```
 
 TTS / Audio は現在アプリケーションプロジェクト内にあります。責務を分離したまま実装し、必要になった段階で静的ライブラリへ切り出します。
-`storage_system` はアプリケーション共通のユーザーデータ保存窓口です。保存先の解決、ディレクトリ作成、読み書き、一時ファイル、ファイル名の競合回避を担当します。\n\nVOICEVOX Engine は別プロセスとして起動し、HTTP API で接続します。
+`storage_system` はアプリケーション共通のユーザーデータ保存窓口です。保存先の解決、ディレクトリ作成、読み書き、一時ファイル、ファイル名の競合回避を担当します。
+
+VOICEVOX Engine は別プロセスとして起動し、HTTP API で接続します。
 
 ## 3. モジュール設計
 
