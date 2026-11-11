@@ -351,6 +351,14 @@ bool storage_system::read_utf8_text(const std::wstring& path, std::wstring& text
 }
 
 // 想定頻度: 汎用UTF-8テキスト保存時のみ。現行サンプル保存経路では未使用。
+// 想定頻度: 計測レポートなど、新規テキストファイルの保存時のみ.
+bool storage_system::write_utf8_text_new(const std::wstring& path, const std::wstring& text)
+{
+    std::vector<std::uint8_t> data;
+    if (!encode_utf8(text, data, true)) return false;
+    return write_binary_exclusive(path, data);
+}
+
 bool storage_system::write_utf8_text_atomic(const std::wstring& path, const std::wstring& text)
 {
     std::vector<std::uint8_t> data;
