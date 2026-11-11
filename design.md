@@ -123,6 +123,11 @@ Win32 API を利用して初期 GUI を管理するクラスです。
 - `engine_path_edit`: VOICEVOX Engine の `run.exe` パス入力。
 - `engine_path_browse_button`: `IFileOpenDialog` で実行ファイルを選択。
 - `engine_path_apply_button`: 入力パスを保存し、Engine へ再接続。
+- `gpt_host_edit` / `gpt_port_edit`: GPT-SoVITS API のホスト名とポート番号。
+- `gpt_reference_edit` / `gpt_reference_browse_button`: 参照音声ファイルのパスと選択操作。
+- `gpt_prompt_edit`: 参照音声に対応する正解テキスト。
+- `gpt_prompt_language_combo` / `gpt_text_language_combo`: 参照音声・生成テキストの言語。
+- `gpt_settings_apply_button`: GPT-SoVITS 設定を検証・保存し、API に再接続。
 
 **主な処理**
 - `CreateWindowExW` で ComboBox、複数行 Edit、Button、Static を生成する。
@@ -228,7 +233,12 @@ VOICEVOX Engine の起動・終了は voicevox_process が管理します。GUI 
 - `POST /tts` に JSON を送信し、WAV データを取得します。
 - リクエストには合成テキスト、言語、参照音声ファイルパス、参照音声のテキストを指定します。
 - GPT-SoVITS は VOICEVOX のような話者一覧を提供しないため、共通インターフェースには参照音声を表す単一の仮想スタイルを返します。
-- 参照音声・参照テキスト・言語は `gpt_sovits_engine::settings` で受け取ります。GUI と設定保存への接続は後続実装で行います。
+- 参照音声・参照テキスト・言語・接続先は `gpt_sovits_engine::settings` で受け取ります。
+- メイン GUI の GPT-SoVITS 設定欄からホスト、ポート、参照音声、参照テキスト、参照言語、生成言語を編集できます。
+- 参照音声はファイル選択ダイアログで指定します。参照テキストと参照音声の言語はユーザーが対応を確認して設定します。
+- 言語選択肢は `ja` / `en` / `zh` / `ko` / `yue` / `auto` です。
+- Apply 操作で必須項目とポート範囲を検証し、`app_settings` に保存してから `tts_controller` に設定を反映し、再接続します。
+- GPT-SoVITS は単一の仮想スタイルを返すため、VOICEVOX の話者一覧 UI は共通インターフェース維持用の選択肢として表示されます。
 - API プロセスの起動・終了は VoiceLink から管理せず、外部で起動済みの API に接続します。
 
 ### 3.3 VoiceLink.Audio
@@ -254,75 +264,21 @@ Audio は TTS の HTTP 通信や JSON 解析へ依存しません。
 
 ### 4.1 起動・話者一覧取得
 
-```text
-main_window
- |
- | initialize_async
- v
-tts_controller
- |
- | initialize
- v
-voicevox_engine
- |
- | GET /speakers
- v
-VOICEVOX Engine
- |
- | speaker/style list
- v
-voicevox_engine
- |
- | common speaker/style data
- v
-tts_controller
- |
- | PostMessage result
- v
-main_window
- |
- | populate
- v
-speaker_combo_box
-```
+選択中のエンジンに応じて接続先を切り替えます。
+
+- VOICEVOX: `voicevox_process` で必要に応じて Engine を起動し、`GET /speakers` で実際の話者・スタイル一覧を取得します。
+- GPT-SoVITS: 外部起動済み API の `GET /openapi.json` で接続を確認し、参照音声を表す単一の仮想スタイルを返します。
+
+どちらも `tts_engine::speaker_style` に変換し、`tts_controller` から UI スレッドへ通知します。
 
 ### 4.2 テキスト読み上げ
 
-```text
-User
- |
- | select speaker + enter text + click Play
- v
-main_window
- |
- | input text + speaker_id
- v
-tts_controller
- |
- | synthesize(text, speaker_id)
- v
-tts_engine / voicevox_engine
- |
- | 1. POST /audio_query
- | 2. POST /synthesis
- v
-VOICEVOX Engine
- |
- | WAV bytes
- v
-voicevox_engine
- |
- | WAV bytes
- v
-tts_controller
- |
- | play(wav_data)
- v
-audio_player
- |
- v
-Audio Output Device
-```
+`tts_controller` は共通の `tts_engine` を呼び出します。
+
+- VOICEVOX: `/audio_query` → `/synthesis` の順で WAV を取得します。
+- GPT-SoVITS: 設定済みの参照音声・参照テキスト・言語と生成テキストを `POST /tts` に送り、WAV を取得します。
+
+取得した WAV は共通の `audio_player` へ渡します。
 
 ## 5. 依存関係のルール
 
@@ -412,7 +368,7 @@ SAPI を選択している場合、メインウィンドウの `Training...` か
 | 音声認識インターフェース | **決定: speech_recognition_engine** | 認識エンジン実装を差し替え可能にする |
 | TTS の戻り値形式 | `bool` + WAV バイト列 + エラー文字列 | `tts_engine` の共通インターフェースで統一 |
 | 話者・スタイル型 | `tts_engine::speaker_style` | 話者名、スタイル名、speaker ID を保持 |
-| 設定保存形式 | **決定: JSON (`%APPDATA%\\VoiceLink\\config.json`)** | VOICEVOX Engine の実行ファイルパスを `voicevox_path` に保存。空文字列は自動検索 |
+| 設定保存形式 | **決定: JSON (`%APPDATA%\\VoiceLink\\config.json`)** | 選択中のエンジン、VOICEVOX の実行ファイルパス、GPT-SoVITS の接続先・参照音声・参照テキスト・言語設定を保存 |
 | VOICEVOX Engine の管理 | **決定: voicevox_process で自動管理** | 標準パスと `%APPDATA%\\voicevox\\vvpp-engines` を検索。既存 Engine は再利用し、自分で起動したプロセスだけ終了時に停止 |
 
 ## 9. 現在の実装状況
@@ -423,9 +379,9 @@ SAPI を選択している場合、メインウィンドウの `Training...` か
 - GPT-SoVITS 用の `gpt_sovits_engine` を追加し、`/openapi.json` による接続確認と `POST /tts` による WAV 取得を実装。
 - `tts_controller` が GUI 入力、非同期 TTS 処理、結果通知、音声再生を仲介する。
 - `audio_player` が WAV をメモリから非同期再生する。
-- 接続先は現在 `http://127.0.0.1:50021` 固定。`voicevox_process` が Engine の検索・起動・終了管理を行う。
+- VOICEVOX 接続先は現在 `http://127.0.0.1:50021` 固定。GPT-SoVITS は設定可能なホスト・ポートを利用する。`voicevox_process` が Engine の検索・起動・終了管理を行う。
 - GUI から TTS エンジンを選択でき、選択内容を `%APPDATA%\\VoiceLink\\config.json` に保存する。
-- 設定ファイルに GPT-SoVITS の接続先・参照音声・参照テキスト・言語を保存する。参照音声・参照テキストの GUI 編集は後続作業。
+- GPT-SoVITS 設定欄から接続先、参照音声、参照テキスト、参照言語、生成言語を編集・保存し、設定反映後に再接続する。
 - GUI から `run.exe` のパスを指定でき、同じ設定ファイルに保存する。
 - Text-to-Speech 関連ソースは `text_to_speech/` に配置し、アプリケーションプロジェクトに含めている。TTS / Audio の静的ライブラリ分離は後続作業とする。
 - SAPI を利用した音声認識インターフェースと初期実装を追加。
