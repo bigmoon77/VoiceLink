@@ -49,6 +49,27 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command)
     gpt_settings.text_language = saved_gpt_settings.text_language;
     controller.set_gpt_sovits_settings(gpt_settings);
 
+    window.set_selected_engine(
+        settings.get_tts_engine_type() == app_settings::tts_engine_type::gpt_sovits ? 1 : 0
+    );
+
+    window.set_engine_changed_callback([&](int engine_index)
+    {
+        settings.set_tts_engine_type(
+            engine_index == 1
+                ? app_settings::tts_engine_type::gpt_sovits
+                : app_settings::tts_engine_type::voicevox
+        );
+        if (!settings.save())
+        {
+            window.set_status(L"設定ファイルを保存できませんでした。");
+            return;
+        }
+
+        controller.set_engine_type(engine_index == 1);
+        controller.initialize_async();
+    });
+
     window.set_voicevox_path_callback([&](const std::wstring& path)
     {
         settings.set_voicevox_path(path);
