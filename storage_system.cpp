@@ -258,7 +258,12 @@ bool storage_system::save_training_sample(
             GetFileAttributesW(text_final.c_str()) != INVALID_FILE_ATTRIBUTES) continue;
 
         HANDLE lock = CreateFileW(lock_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, nullptr);
-        if (lock == INVALID_HANDLE_VALUE) continue;
+        if (lock == INVALID_HANDLE_VALUE)
+        {
+            const DWORD error = GetLastError();
+            if (error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS) continue;
+            return false;
+        }
 
         const std::wstring suffix_id = L"." + make_unique_suffix() + L".tmp";
         const std::wstring wav_temp = stem + suffix_id + L"_wav.tmp";
