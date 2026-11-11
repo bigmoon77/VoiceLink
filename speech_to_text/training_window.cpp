@@ -399,7 +399,7 @@ void training_window::load_training_samples()
     do
     {
         if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) continue;
-        training_sample sample;
+        const std::wstring sample_stem = directory + L"\\\\" + find_data.cFileName;\n        const std::size_t extension_pos = sample_stem.rfind(L".wav");\n        if (extension_pos == std::wstring::npos) continue;\n        const std::wstring lock_path = sample_stem.substr(0, extension_pos) + L".lock";\n        if (GetFileAttributesW(lock_path.c_str()) != INVALID_FILE_ATTRIBUTES) continue;\n        training_sample sample;
         sample.wav_path = directory + L"\\" + find_data.cFileName;
         const std::size_t extension = sample.wav_path.rfind(L".wav");
         if (extension == std::wstring::npos) continue;
