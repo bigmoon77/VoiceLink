@@ -124,6 +124,34 @@ bool app_settings::load()
         );
         const auto value = object.GetNamedString(L"voicevox_path", L"");
         _voicevox_path = value.c_str();
+
+        const std::wstring engine_type = object.GetNamedString(
+            L"tts_engine", L"voicevox"
+        ).c_str();
+        _tts_engine_type = engine_type == L"gpt_sovits"
+            ? tts_engine_type::gpt_sovits
+            : tts_engine_type::voicevox;
+
+        _gpt_sovits_settings.host = object.GetNamedString(
+            L"gpt_sovits_host", L"127.0.0.1"
+        ).c_str();
+        const INT32 port = object.GetNamedNumber(L"gpt_sovits_port", 9880);
+        if (port > 0 && port <= 65535)
+        {
+            _gpt_sovits_settings.port = static_cast<std::uint16_t>(port);
+        }
+        _gpt_sovits_settings.reference_audio_path = object.GetNamedString(
+            L"gpt_sovits_reference_audio", L""
+        ).c_str();
+        _gpt_sovits_settings.prompt_text = object.GetNamedString(
+            L"gpt_sovits_prompt_text", L""
+        ).c_str();
+        _gpt_sovits_settings.prompt_language = object.GetNamedString(
+            L"gpt_sovits_prompt_language", L"ja"
+        ).c_str();
+        _gpt_sovits_settings.text_language = object.GetNamedString(
+            L"gpt_sovits_text_language", L"ja"
+        ).c_str();
         return true;
     }
     catch (...)
@@ -146,6 +174,48 @@ bool app_settings::save() const
         object.Insert(
             L"voicevox_path",
             winrt::Windows::Data::Json::JsonValue::CreateStringValue(winrt::hstring(_voicevox_path))
+        );
+        object.Insert(
+            L"tts_engine",
+            winrt::Windows::Data::Json::JsonValue::CreateStringValue(
+                _tts_engine_type == tts_engine_type::gpt_sovits ? L"gpt_sovits" : L"voicevox"
+            )
+        );
+        object.Insert(
+            L"gpt_sovits_host",
+            winrt::Windows::Data::Json::JsonValue::CreateStringValue(
+                winrt::hstring(_gpt_sovits_settings.host)
+            )
+        );
+        object.Insert(
+            L"gpt_sovits_port",
+            winrt::Windows::Data::Json::JsonValue::CreateNumberValue(
+                _gpt_sovits_settings.port
+            )
+        );
+        object.Insert(
+            L"gpt_sovits_reference_audio",
+            winrt::Windows::Data::Json::JsonValue::CreateStringValue(
+                winrt::hstring(_gpt_sovits_settings.reference_audio_path)
+            )
+        );
+        object.Insert(
+            L"gpt_sovits_prompt_text",
+            winrt::Windows::Data::Json::JsonValue::CreateStringValue(
+                winrt::hstring(_gpt_sovits_settings.prompt_text)
+            )
+        );
+        object.Insert(
+            L"gpt_sovits_prompt_language",
+            winrt::Windows::Data::Json::JsonValue::CreateStringValue(
+                winrt::hstring(_gpt_sovits_settings.prompt_language)
+            )
+        );
+        object.Insert(
+            L"gpt_sovits_text_language",
+            winrt::Windows::Data::Json::JsonValue::CreateStringValue(
+                winrt::hstring(_gpt_sovits_settings.text_language)
+            )
         );
 
         const std::string json = wide_to_utf8(
@@ -187,6 +257,26 @@ const std::wstring& app_settings::get_voicevox_path() const
 void app_settings::set_voicevox_path(const std::wstring& path)
 {
     _voicevox_path = path;
+}
+
+app_settings::tts_engine_type app_settings::get_tts_engine_type() const
+{
+    return _tts_engine_type;
+}
+
+void app_settings::set_tts_engine_type(tts_engine_type value)
+{
+    _tts_engine_type = value;
+}
+
+const app_settings::gpt_sovits_settings& app_settings::get_gpt_sovits_settings() const
+{
+    return _gpt_sovits_settings;
+}
+
+void app_settings::set_gpt_sovits_settings(const gpt_sovits_settings& value)
+{
+    _gpt_sovits_settings = value;
 }
 
 std::wstring app_settings::get_config_path() const
