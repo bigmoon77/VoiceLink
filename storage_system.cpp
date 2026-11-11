@@ -231,26 +231,37 @@ bool storage_system::save_training_sample(
     {
         const std::wstring name = suffix == 0 ? base : base + L"_" + std::to_wstring(suffix);
         const std::wstring stem = directory_path + L"\\" + name;
+        const std::wstring wav_final = stem + L".wav";
+        const std::wstring text_final = stem + L".txt";
         const std::wstring lock_path = stem + L".lock";
+        if (GetFileAttributesW(wav_final.c_str()) != INVALID_FILE_ATTRIBUTES ||
+            GetFileAttributesW(text_final.c_str()) != INVALID_FILE_ATTRIBUTES) continue;
+
         HANDLE lock = CreateFileW(lock_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, nullptr);
         if (lock == INVALID_HANDLE_VALUE) continue;
 
-        const std::wstring wav_final = stem + L".wav";
-        const std::wstring text_final = stem + L".txt";
         const std::wstring suffix_id = L"." + make_unique_suffix() + L".tmp";
         const std::wstring wav_temp = stem + suffix_id + L".wav";
         const std::wstring text_temp = stem + suffix_id + L".txt";
         bool success = write_binary_exclusive(wav_temp, wav_data) &&
             write_binary_exclusive(text_temp, text_data);
+        DWORD move_error = ERROR_SUCCESS;
+
         if (success)
         {
             success = MoveFileExW(wav_temp.c_str(), wav_final.c_str(), MOVEFILE_WRITE_THROUGH) != FALSE;
-            if (success)
+            if (!success) move_error = GetLastError();
+        }
+        if (success)
+        {
+            success = MoveFileExW(text_temp.c_str(), text_final.c_str(), MOVEFILE_WRITE_THROUGH) != FALSE;
+            if (!success)
             {
-                success = MoveFileExW(text_temp.c_str(), text_final.c_str(), MOVEFILE_WRITE_THROUGH) != FALSE;
-                if (!success) DeleteFileW(wav_final.c_str());
+                move_error = GetLastError();
+                DeleteFileW(wav_final.c_str());
             }
         }
+
         if (!success)
         {
             DeleteFileW(wav_temp.c_str());
@@ -258,6 +269,7 @@ bool storage_system::save_training_sample(
         }
         CloseHandle(lock);
         DeleteFileW(lock_path.c_str());
+
         if (success)
         {
             wav_path = wav_final;
