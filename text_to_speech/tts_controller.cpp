@@ -1,5 +1,6 @@
 ﻿#include "tts_controller.h"
 #include "voicevox_engine.h"
+#include "gpt_sovits_engine.h"
 
 #include <winrt/base.h>
 
@@ -61,6 +62,45 @@ void tts_controller::set_voicevox_path(const std::wstring& path)
     _voicevox_path = path;
 }
 
+void tts_controller::set_engine_type(bool use_gpt_sovits)
+{
+    if (_busy)
+    {
+        return;
+    }
+
+    _use_gpt_sovits = use_gpt_sovits;
+    if (_use_gpt_sovits)
+    {
+        std::unique_ptr<gpt_sovits_engine> engine =
+            std::make_unique<gpt_sovits_engine>();
+        engine->set_settings(_gpt_sovits_settings);
+        _engine = std::move(engine);
+    }
+    else
+    {
+        _engine = std::make_unique<voicevox_engine>();
+    }
+}
+
+void tts_controller::set_gpt_sovits_settings(const gpt_sovits_engine::settings& value)
+{
+    if (_busy)
+    {
+        return;
+    }
+
+    _gpt_sovits_settings = value;
+    if (_use_gpt_sovits)
+    {
+        gpt_sovits_engine* engine = dynamic_cast<gpt_sovits_engine*>(_engine.get());
+        if (engine)
+        {
+            engine->set_settings(_gpt_sovits_settings);
+        }
+    }
+}
+
 void tts_controller::initialize_async()
 {
     if (_busy.exchange(true))
@@ -72,9 +112,12 @@ void tts_controller::initialize_async()
     _window.set_play_enabled(false);
     _window.set_reconnect_enabled(false);
     _window.set_voicevox_path_enabled(false);
-    _window.set_status(L"VOICEVOX Engine に接続しています...");
+    _window.set_status(_use_gpt_sovits
+        ? L"GPT-SoVITS API に接続しています..."
+        : L"VOICEVOX Engine に接続しています...");
 
     const std::wstring engine_path = _voicevox_path;
+    const bool use_gpt_sovits = _use_gpt_sovits;
 
     start_worker([this, engine_path]()
     {
@@ -84,7 +127,7 @@ void tts_controller::initialize_async()
 
         try
         {
-            if (!_voicevox_process.start(engine_path, result.error))
+            if (!use_gpt_sovits && !_voicevox_process.start(engine_path, result.error))
             {
                 // Keep the connection failure in the normal initialization result.
             }
@@ -110,12 +153,16 @@ void tts_controller::initialize_async()
         }
         catch (const winrt::hresult_error& exception)
         {
-            result.error = L"VOICEVOX 初期化に失敗しました: ";
+            result.error = use_gpt_sovits
+                ? L"GPT-SoVITS 初期化に失敗しました: "
+                : L"VOICEVOX 初期化に失敗しました: ";
             result.error += exception.message().c_str();
         }
         catch (...)
         {
-            result.error = L"VOICEVOX 初期化中に予期しないエラーが発生しました。";
+            result.error = use_gpt_sovits
+                ? L"GPT-SoVITS 初期化中に予期しないエラーが発生しました。"
+                : L"VOICEVOX 初期化中に予期しないエラーが発生しました。";
         }
 
         if (apartment_initialized)
@@ -220,7 +267,7 @@ bool tts_controller::handle_window_message(UINT message, WPARAM, LPARAM)
         {
             _window.set_speakers({});
             _window.set_play_enabled(false);
-            _window.set_status(L"VOICEVOX 接続失敗: " + result.error);
+            _window.set_status((_use_gpt_sovits ? L"GPT-SoVITS 接続失敗: " : L"VOICEVOX 接続失敗: ") + result.error);
             _initialized = false;
             return true;
         }
@@ -228,7 +275,7 @@ bool tts_controller::handle_window_message(UINT message, WPARAM, LPARAM)
         _window.set_speakers(result.speakers);
         _window.set_play_enabled(!result.speakers.empty());
         _window.set_status(
-            L"VOICEVOX 接続済み (" +
+            (_use_gpt_sovits ? L"GPT-SoVITS 接続済み (" : L"VOICEVOX 接続済み (") +
             std::to_wstring(result.speakers.size()) +
             L" styles)"
         );
