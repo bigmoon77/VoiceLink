@@ -653,7 +653,7 @@ std::wstring training_window::get_correction_text() const
 bool training_window::save_training_text(const std::wstring& text) const
 {
     const std::wstring path = storage_system::get_training_history_path(true);
-    return !path.empty() && storage_system::append_utf8_text(path, text + L"\\r\\n", true);
+    return !path.empty() && storage_system::append_utf8_text(path, text + L"\r\n", true);
 }
 
 void training_window::apply_font(HWND control)
