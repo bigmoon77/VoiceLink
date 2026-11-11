@@ -13,25 +13,6 @@
 
 namespace
 {
-    std::wstring get_app_data_path()
-    {
-        const DWORD required = GetEnvironmentVariableW(L"APPDATA", nullptr, 0);
-        if (required == 0)
-        {
-            return {};
-        }
-
-        std::wstring path(required, L'\0');
-        const DWORD copied = GetEnvironmentVariableW(L"APPDATA", path.data(), required);
-        if (copied == 0 || copied >= required)
-        {
-            return {};
-        }
-
-        path.resize(copied);
-        return path;
-    }
-
     std::wstring utf8_to_wide(const std::string& value)
     {
         if (value.empty())
