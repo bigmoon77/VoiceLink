@@ -45,7 +45,7 @@ public:
     void set_training_enabled(bool enabled);
     void append_recognized_text(const std::wstring& text);
     void set_reconnect_enabled(bool enabled);
-    void set_voicevox_path_enabled(bool enabled);
+    void set_engine_settings_enabled(bool enabled);
     void set_selected_engine(int engine_index);
     int get_selected_engine() const;
     void set_gpt_sovits_settings(const gpt_sovits_form_settings& value);
