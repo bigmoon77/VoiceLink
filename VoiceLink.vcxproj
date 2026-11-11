@@ -142,6 +142,7 @@
     <ClCompile Include="speech_to_text\training_window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="call_frequency.h" />
     <ClInclude Include="storage_system.h" />
     <ClInclude Include="main_window.h" />
     <ClInclude Include="app_settings.h" />
