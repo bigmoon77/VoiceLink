@@ -119,6 +119,7 @@ Win32 API を利用して初期 GUI を管理するクラスです。
 - `debug_text_box`: 読み上げテキスト入力。
 - `play_button`: 合成・再生の開始。
 - `status_text`: Engine 接続状態や処理結果の表示。
+- `tts_engine_combo_box`: VOICEVOX / GPT-SoVITS の選択。
 - `engine_path_edit`: VOICEVOX Engine の `run.exe` パス入力。
 - `engine_path_browse_button`: `IFileOpenDialog` で実行ファイルを選択。
 - `engine_path_apply_button`: 入力パスを保存し、Engine へ再接続。
@@ -134,14 +135,15 @@ HTTP 通信や WAV 再生の詳細は扱わず、`tts_controller` へ委譲し�
 
 #### `app_settings`
 
-`%APPDATA%\\VoiceLink\\config.json` を読み書きし、VOICEVOX Engine の実行ファイルパスを保持します。JSON は UTF-8 で保存し、設定キー `voicevox_path` に実行ファイルパスを記録します。
+`%APPDATA%\\VoiceLink\\config.json` を読み書きします。VOICEVOX の実行ファイルパスに加え、選択中の TTS エンジンと GPT-SoVITS の接続先・参照音声・参照テキスト・言語設定を保持します。JSON は UTF-8 で保存します。
 
 #### `tts_controller`
 
 GUI と TTS / Audio の間を仲介するクラスです。実装ファイルは `text_to_speech/` に配置しています。
 
 **責務**
-- 起動時に VOICEVOX Engine へ接続し、話者・スタイル一覧を取得する。
+- GUI で選択された TTS エンジンへ接続し、話者・スタイル一覧を取得する。
+- VOICEVOX と GPT-SoVITS のエンジンを切り替え、共通の `tts_engine` 経由で合成する。
 - `main_window` から読み上げテキストと speaker ID を受け取る。
 - `tts_engine` に音声合成を依頼する。
 - 合成結果の WAV を `audio_player` へ渡す。
@@ -422,7 +424,9 @@ SAPI を選択している場合、メインウィンドウの `Training...` か
 - `tts_controller` が GUI 入力、非同期 TTS 処理、結果通知、音声再生を仲介する。
 - `audio_player` が WAV をメモリから非同期再生する。
 - 接続先は現在 `http://127.0.0.1:50021` 固定。`voicevox_process` が Engine の検索・起動・終了管理を行う。
-- GUI から `run.exe` のパスを指定でき、`%APPDATA%\\VoiceLink\\config.json` に保存する。
+- GUI から TTS エンジンを選択でき、選択内容を `%APPDATA%\\VoiceLink\\config.json` に保存する。
+- 設定ファイルに GPT-SoVITS の接続先・参照音声・参照テキスト・言語を保存する。参照音声・参照テキストの GUI 編集は後続作業。
+- GUI から `run.exe` のパスを指定でき、同じ設定ファイルに保存する。
 - Text-to-Speech 関連ソースは `text_to_speech/` に配置し、アプリケーションプロジェクトに含めている。TTS / Audio の静的ライブラリ分離は後続作業とする。
 - SAPI を利用した音声認識インターフェースと初期実装を追加。
 - SAPI の代替候補 Commit、`SetAdaptationData()`、訂正履歴の保存・再読み込みを行うトレーニング GUI を追加。
