@@ -471,7 +471,7 @@ SAPI を選択している場合、メインウィンドウの `Training...` か
 - GUI から TTS エンジンを選択でき、選択内容を `%APPDATA%\\VoiceLink\\config.json` に保存する。
 - GPT-SoVITS 設定欄から接続先、参照音声、参照テキスト、参照言語、生成言語を編集・保存し、設定反映後に再接続する。
 - GUI から `run.exe` のパスを指定でき、同じ設定ファイルに保存する。
-- Text-to-Speech 関連ソースは `text_to_speech/` に配置し、アプリケーションプロジェクトに含めている。TTS / Audio の静的ライブラリ分離は後続作業とする。
+- Text-to-Speech 関連ソースは `text_to_speech/` に配置し、単一のアプリケーションプロジェクトに含める。
 - SAPI を利用した音声認識インターフェースと初期実装を追加。
 - SAPI の代替候補 Commit、`SetAdaptationData()`、訂正履歴の保存・再読み込みを行うトレーニング GUI を追加。
 - WinMM によるマイク録音、録音音声の再生、正解テキストとのペア保存、保存済みサンプルの一覧・選択をトレーニング GUI に追加。保存先は `%APPDATA%\\VoiceLink\\training_samples\\`。
