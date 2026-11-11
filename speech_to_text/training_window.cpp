@@ -14,7 +14,14 @@
 
 constexpr wchar_t training_window::_window_class_name[];
 
-namespace\n{\n    constexpr int window_width = 760;\n    constexpr int window_height = 820;\n    constexpr int margin = 12;\n    constexpr int control_height = 26;\n    constexpr int label_height = 20;\n}
+namespace
+{
+    constexpr int window_width = 760;
+    constexpr int window_height = 820;
+    constexpr int margin = 12;
+    constexpr int control_height = 26;
+    constexpr int label_height = 20;
+}
 
 training_window::training_window(HWND parent)
     : _parent(parent)
@@ -347,7 +354,8 @@ void training_window::load_training_history()
     size_t offset = 0;
     while (offset < data.size())
     {
-        const size_t line_end = data.find('\n', offset);
+        const size_t line_end = data.find('
+', offset);
         const size_t count = (line_end == std::string::npos ? data.size() : line_end) - offset;
         std::string line = data.substr(offset, count);
         if (!line.empty() && line.back() == '\r') line.pop_back();
@@ -389,7 +397,8 @@ void training_window::refresh_selected_record()
 void training_window::load_training_samples()
 {
     std::wstring directory;
-    directory = storage_system::get_directory_path(storage_system::directory::training_samples, true);\n    if (directory.empty()) return;
+    directory = storage_system::get_directory_path(storage_system::directory::training_samples, true);
+    if (directory.empty()) return;
 
     const std::wstring search_path = directory + L"\\*.wav";
     WIN32_FIND_DATAW find_data{};
@@ -399,7 +408,12 @@ void training_window::load_training_samples()
     do
     {
         if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) continue;
-        const std::wstring sample_stem = directory + L"\\\\" + find_data.cFileName;\n        const std::size_t extension_pos = sample_stem.rfind(L".wav");\n        if (extension_pos == std::wstring::npos) continue;\n        const std::wstring lock_path = sample_stem.substr(0, extension_pos) + L".lock";\n        if (GetFileAttributesW(lock_path.c_str()) != INVALID_FILE_ATTRIBUTES) continue;\n        training_sample sample;
+        const std::wstring sample_stem = directory + L"\\\\" + find_data.cFileName;
+        const std::size_t extension_pos = sample_stem.rfind(L".wav");
+        if (extension_pos == std::wstring::npos) continue;
+        const std::wstring lock_path = sample_stem.substr(0, extension_pos) + L".lock";
+        if (GetFileAttributesW(lock_path.c_str()) != INVALID_FILE_ATTRIBUTES) continue;
+        training_sample sample;
         sample.wav_path = directory + L"\\" + find_data.cFileName;
         const std::size_t extension = sample.wav_path.rfind(L".wav");
         if (extension == std::wstring::npos) continue;
@@ -653,7 +667,8 @@ std::wstring training_window::get_correction_text() const
 bool training_window::save_training_text(const std::wstring& text) const
 {
     const std::wstring path = storage_system::get_training_history_path(true);
-    return !path.empty() && storage_system::append_utf8_text(path, text + L"\r\n", true);
+    return !path.empty() && storage_system::append_utf8_text(path, text + L"\r
+", true);
 }
 
 void training_window::apply_font(HWND control)
