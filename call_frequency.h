@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <cwchar>
 #include <string>
 
 // 想定頻度: 計測対象関数が呼び出されるたびに1回。
@@ -64,10 +65,13 @@ public:
         SYSTEMTIME time{};
         GetLocalTime(&time);
 
-        wchar_t file_name[96]{};
+        static std::atomic<std::uint64_t> file_counter{ 0 };
+        const std::uint64_t serial = file_counter.fetch_add(1, std::memory_order_relaxed);
+
+        wchar_t file_name[112]{};
         swprintf_s(
             file_name,
-            L"call_frequency_%04u%02u%02u_%02u%02u%02u_%03u_%lu_%llu.csv",
+            L"call_frequency_%04u%02u%02u_%02u%02u%02u_%03u_%lu_%llu_%llu.csv",
             time.wYear,
             time.wMonth,
             time.wDay,
@@ -76,7 +80,8 @@ public:
             time.wSecond,
             time.wMilliseconds,
             GetCurrentProcessId(),
-            GetTickCount64()
+            GetTickCount64(),
+            serial
         );
 
         const std::wstring path = directory + L"\\" + file_name;
