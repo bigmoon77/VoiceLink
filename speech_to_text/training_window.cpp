@@ -408,7 +408,7 @@ void training_window::load_training_samples()
     do
     {
         if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) continue;
-        const std::wstring sample_stem = directory + L"\\\\" + find_data.cFileName;
+        const std::wstring sample_stem = directory + L"\\" + find_data.cFileName;
         const std::size_t extension_pos = sample_stem.rfind(L".wav");
         if (extension_pos == std::wstring::npos) continue;
         const std::wstring lock_path = sample_stem.substr(0, extension_pos) + L".lock";
