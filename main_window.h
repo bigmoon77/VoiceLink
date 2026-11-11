@@ -60,8 +60,8 @@ private:
 
     enum control_id
     {
-        engine_select_label_id = 1000,
-        engine_select_combo_id,
+        engine_select_label_id = 1018,
+        engine_select_combo_id = 1019,
         speaker_label_id = 1001,
         speaker_combo_id,
         reconnect_button_id,
