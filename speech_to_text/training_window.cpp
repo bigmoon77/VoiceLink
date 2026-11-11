@@ -399,8 +399,13 @@ void training_window::load_training_samples()
         sample.wav_path = directory + L"\\" + find_data.cFileName;
         const std::size_t extension = sample.wav_path.rfind(L".wav");
         if (extension == std::wstring::npos) continue;
-        const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
-        if (!storage_system::read_utf8_text(text_path, sample.text)) continue;
+        const storage_system::training_text_state state = storage_system::read_training_sample_text(sample.wav_path, sample.text);
+        if (state == storage_system::training_text_state::invalid) continue;
+        if (state == storage_system::training_text_state::missing)
+        {
+            const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
+            if (!storage_system::read_utf8_text(text_path, sample.text)) continue;
+        }
         _samples.push_back(std::move(sample));
     } while (FindNextFileW(find_handle, &find_data));
     FindClose(find_handle);
@@ -506,7 +511,7 @@ void training_window::save_recorded_sample()
     std::wstring wav_path;
     if (!storage_system::save_training_sample(_recorded_audio, text, wav_path))
     {
-        set_status(L"WAV/TXT ペアを保存できませんでした。");
+        set_status(L"正解テキストを埋め込んだ WAV を保存できませんでした。");
         return;
     }
 
@@ -530,7 +535,7 @@ void training_window::submit_all_samples_for_adaptation()
     }
     if (_samples.empty())
     {
-        set_status(L"学習サンプルがありません。WAV と TXT のペアを保存してください。");
+        set_status(L"学習サンプルがありません。WAV サンプルを保存してください。");
         return;
     }
 
@@ -560,20 +565,29 @@ void training_window::submit_all_samples_for_adaptation()
             return;
         }
 
-        const std::size_t extension = sample.wav_path.rfind(L".wav");
-        if (extension == std::wstring::npos)
-        {
-            set_status(L"WAV ファイル名が不正です。");
-            return;
-        }
-        const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
         std::wstring text;
-        if (!storage_system::read_utf8_text(text_path, text) || text.empty() || text.size() > 512)
+        const storage_system::training_text_state state = storage_system::read_training_sample_text(sample.wav_path, text);
+        if (state == storage_system::training_text_state::invalid)
         {
-            set_status(L"TXT を読み込めない、空、または512文字を超えるサンプルがあります。");
+            set_status(L"WAV 内の正解テキスト情報が破損しています。");
             return;
         }
-
+        if (state == storage_system::training_text_state::missing)
+        {
+            const std::size_t extension = sample.wav_path.rfind(L".wav");
+            if (extension == std::wstring::npos) { set_status(L"WAV ファイル名が不正です。"); return; }
+            const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
+            if (!storage_system::read_utf8_text(text_path, text))
+            {
+                set_status(L"旧形式の TXT を読み込めませんでした。");
+                return;
+            }
+        }
+        if (text.empty() || text.size() > 512)
+        {
+            set_status(L"正解テキストが空、または512文字を超えるサンプルがあります。");
+            return;
+        }
         sample.text = text;
         texts.push_back(std::move(text));
     }
@@ -627,13 +641,13 @@ void training_window::update_selected_sample_text()
         set_status(L"サンプルファイル名が不正です。");
         return;
     }
-    const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
-    if (!storage_system::write_utf8_text_atomic(text_path, text))
+    if (!storage_system::write_training_sample_text_atomic(sample.wav_path, text))
     {
-        set_status(L"正解テキストを更新できませんでした。");
+        set_status(L"WAV 内の正解テキストを更新できませんでした。");
         return;
     }
-
+    const std::wstring legacy_text_path = sample.wav_path.substr(0, extension) + L".txt";
+    DeleteFileW(legacy_text_path.c_str());
     sample.text = text;
     set_status(L"選択中のサンプルの正解テキストを更新しました。");
 }
