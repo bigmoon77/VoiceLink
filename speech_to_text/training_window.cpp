@@ -1,9 +1,8 @@
 ﻿#include "training_window.h"
+#include "../storage_system.h"
 
 #include <algorithm>
 #include <cwchar>
-#include <fstream>
-#include <iterator>
 #include <limits>
 #include <string>
 #include <utility>
@@ -15,19 +14,7 @@
 
 constexpr wchar_t training_window::_window_class_name[];
 
-namespace
-{
-    constexpr int window_width = 760;
-    constexpr int window_height = 820;
-    constexpr int margin = 12;
-    constexpr int control_height = 26;
-    constexpr int label_height = 20;
-
-    bool is_utf8_bom(const std::vector<std::uint8_t>& data)
-    {
-        return data.size() >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF;
-    }
-}
+namespace\n{\n    constexpr int window_width = 760;\n    constexpr int window_height = 820;\n    constexpr int margin = 12;\n    constexpr int control_height = 26;\n    constexpr int label_height = 20;\n}
 
 training_window::training_window(HWND parent)
     : _parent(parent)
@@ -402,7 +389,7 @@ void training_window::refresh_selected_record()
 void training_window::load_training_samples()
 {
     std::wstring directory;
-    if (!get_sample_directory(directory, true)) return;
+    directory = storage_system::get_directory_path(storage_system::directory::training_samples, true);\n    if (directory.empty()) return;
 
     const std::wstring search_path = directory + L"\\*.wav";
     WIN32_FIND_DATAW find_data{};
@@ -443,7 +430,7 @@ void training_window::select_training_sample()
     const training_sample& sample = _samples[static_cast<std::size_t>(selected)];
     _recorded_audio.clear();
     std::vector<std::uint8_t> audio_data;
-    if (!read_file(sample.wav_path, audio_data) || audio_data.size() < 44)
+    if (!storage_system::read_binary(sample.wav_path, audio_data) || audio_data.size() < 44)
     {
         set_status(L"選択した音声サンプルを読み込めませんでした。");
         return;
@@ -535,7 +522,7 @@ void training_window::save_recorded_sample()
         set_status(L"WAV ファイルを保存できませんでした。");
         return;
     }
-    if (!write_utf8_text(text_path, text))
+    if (!storage_system::write_utf8_text_atomic(text_path, text))
     {
         DeleteFileW(wav_path.c_str());
         set_status(L"正解テキストを保存できませんでした。");
@@ -584,7 +571,7 @@ void training_window::submit_all_samples_for_adaptation()
     for (training_sample& sample : _samples)
     {
         std::vector<std::uint8_t> wav_data;
-        if (!read_file(sample.wav_path, wav_data) || wav_data.size() < 44 ||
+        if (!storage_system::read_binary(sample.wav_path, wav_data) || wav_data.size() < 44 ||
             wav_data[0] != 'R' || wav_data[1] != 'I' || wav_data[2] != 'F' || wav_data[3] != 'F' ||
             wav_data[8] != 'W' || wav_data[9] != 'A' || wav_data[10] != 'V' || wav_data[11] != 'E')
         {
@@ -600,7 +587,7 @@ void training_window::submit_all_samples_for_adaptation()
         }
         const std::wstring text_path = sample.wav_path.substr(0, extension) + L".txt";
         std::wstring text;
-        if (!read_utf8_text(text_path, text) || text.empty() || text.size() > 512)
+        if (!storage_system::read_utf8_text(text_path, text) || text.empty() || text.size() > 512)
         {
             set_status(L"TXT を読み込めない、空、または512文字を超えるサンプルがあります。");
             return;
@@ -680,193 +667,8 @@ std::wstring training_window::get_correction_text() const
 
 bool training_window::save_training_text(const std::wstring& text) const
 {
-    wchar_t app_data[MAX_PATH]{};
-    const DWORD path_length = GetEnvironmentVariableW(L"APPDATA", app_data, MAX_PATH);
-    if (path_length == 0 || path_length >= MAX_PATH) return false;
-
-    const std::wstring directory = std::wstring(app_data) + L"\\VoiceLink";
-    if (!CreateDirectoryW(directory.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
-
-    const std::wstring file_path = directory + L"\\sapi_training.txt";
-    HANDLE file = CreateFileW(file_path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return false;
-
-    LARGE_INTEGER file_size{};
-    const bool has_size = GetFileSizeEx(file, &file_size) != FALSE;
-    bool success = has_size;
-    if (success && file_size.QuadPart == 0)
-    {
-        const char bom[] = { static_cast<char>(0xEF), static_cast<char>(0xBB), static_cast<char>(0xBF) };
-        DWORD written = 0;
-        success = WriteFile(file, bom, sizeof(bom), &written, nullptr) != FALSE && written == sizeof(bom);
-    }
-
-    std::wstring line = text + L"\r\n";
-    const int byte_count = WideCharToMultiByte(CP_UTF8, 0, line.data(), static_cast<int>(line.size()), nullptr, 0, nullptr, nullptr);
-    if (success && byte_count > 0)
-    {
-        std::vector<char> utf8(static_cast<std::size_t>(byte_count));
-        const int converted = WideCharToMultiByte(CP_UTF8, 0, line.data(), static_cast<int>(line.size()), utf8.data(), byte_count, nullptr, nullptr);
-        DWORD written = 0;
-        success = converted == byte_count && WriteFile(file, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr) != FALSE && written == static_cast<DWORD>(utf8.size());
-    }
-    else
-    {
-        success = false;
-    }
-
-    CloseHandle(file);
-    return success;
-}
-
-bool training_window::get_sample_directory(std::wstring& directory, bool create) const
-{
-    wchar_t app_data[MAX_PATH]{};
-    const DWORD path_length = GetEnvironmentVariableW(L"APPDATA", app_data, MAX_PATH);
-    if (path_length == 0 || path_length >= MAX_PATH) return false;
-
-    const std::wstring root = std::wstring(app_data) + L"\\VoiceLink";
-    directory = root + L"\\training_samples";
-    if (!create) return GetFileAttributesW(directory.c_str()) != INVALID_FILE_ATTRIBUTES;
-
-    if (!CreateDirectoryW(root.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
-    if (!CreateDirectoryW(directory.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) return false;
-    return true;
-}
-
-bool training_window::read_file(const std::wstring& path, std::vector<std::uint8_t>& data) const
-{
-    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return false;
-
-    LARGE_INTEGER file_size{};
-    bool success = GetFileSizeEx(file, &file_size) != FALSE && file_size.QuadPart >= 0 &&
-        static_cast<unsigned long long>(file_size.QuadPart) <= static_cast<unsigned long long>((std::numeric_limits<std::size_t>::max)());
-    if (success)
-    {
-        data.resize(static_cast<std::size_t>(file_size.QuadPart));
-        std::size_t offset = 0;
-        while (offset < data.size())
-        {
-            const DWORD chunk_size = static_cast<DWORD>((std::min)(data.size() - offset, static_cast<std::size_t>(MAXDWORD)));
-            DWORD read_size = 0;
-            if (!ReadFile(file, data.data() + offset, chunk_size, &read_size, nullptr) || read_size == 0)
-            {
-                success = false;
-                break;
-            }
-            offset += read_size;
-        }
-    }
-    CloseHandle(file);
-    return success;
-}
-
-bool training_window::write_file(const std::wstring& path, const std::vector<std::uint8_t>& data) const
-{
-    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return false;
-
-    bool success = true;
-    std::size_t offset = 0;
-    while (offset < data.size())
-    {
-        const DWORD chunk_size = static_cast<DWORD>((std::min)(data.size() - offset, static_cast<std::size_t>(MAXDWORD)));
-        DWORD written = 0;
-        if (!WriteFile(file, data.data() + offset, chunk_size, &written, nullptr) || written == 0)
-        {
-            success = false;
-            break;
-        }
-        offset += written;
-    }
-    CloseHandle(file);
-    if (!success) DeleteFileW(path.c_str());
-    return success;
-}
-
-bool training_window::read_utf8_text(const std::wstring& path, std::wstring& text) const
-{
-    std::vector<std::uint8_t> data;
-    if (!read_file(path, data)) return false;
-    if (is_utf8_bom(data)) data.erase(data.begin(), data.begin() + 3);
-    if (data.empty())
-    {
-        text.clear();
-        return true;
-    }
-
-    const int wide_count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-        reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), nullptr, 0);
-    if (wide_count <= 0) return false;
-    text.resize(static_cast<std::size_t>(wide_count));
-    return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-        reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), text.data(), wide_count) == wide_count;
-}
-
-bool training_window::write_utf8_text(const std::wstring& path, const std::wstring& text) const
-{
-    const int byte_count = WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
-    if (byte_count <= 0) return false;
-
-    std::vector<std::uint8_t> data;
-    data.reserve(static_cast<std::size_t>(byte_count) + 3);
-    data.push_back(0xEF);
-    data.push_back(0xBB);
-    data.push_back(0xBF);
-    const std::size_t offset = data.size();
-    data.resize(offset + static_cast<std::size_t>(byte_count));
-    if (WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
-        reinterpret_cast<char*>(data.data() + offset), byte_count, nullptr, nullptr) != byte_count)
-    {
-        return false;
-    }
-
-    const std::wstring temporary_path = path + L".tmp";
-    HANDLE file = CreateFileW(temporary_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return false;
-
-    bool success = true;
-    std::size_t written_offset = 0;
-    while (written_offset < data.size())
-    {
-        const DWORD chunk_size = static_cast<DWORD>((std::min)(data.size() - written_offset, static_cast<std::size_t>(MAXDWORD)));
-        DWORD written = 0;
-        if (!WriteFile(file, data.data() + written_offset, chunk_size, &written, nullptr) || written == 0)
-        {
-            success = false;
-            break;
-        }
-        written_offset += written;
-    }
-    if (success) success = FlushFileBuffers(file) != FALSE;
-    CloseHandle(file);
-
-    if (success)
-    {
-        success = MoveFileExW(temporary_path.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != FALSE;
-    }
-    if (!success) DeleteFileW(temporary_path.c_str());
-    return success;
-}
-
-std::wstring training_window::create_sample_base_name(const std::wstring& directory) const
-{
-    SYSTEMTIME time{};
-    GetLocalTime(&time);
-
-    wchar_t name[64]{};
-    swprintf_s(name, L"sample_%04u%02u%02u_%02u%02u%02u_%03u",
-        time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds);
-    std::wstring base_name = name;
-
-    for (unsigned int suffix = 0; suffix < 1000; ++suffix)
-    {
-        const std::wstring candidate = suffix == 0 ? base_name : base_name + L"_" + std::to_wstring(suffix);
-        const std::wstring path = directory + L"\\" + candidate + L".wav";
-        if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) return candidate;
-    }
-    return base_name + L"_overflow";
+    const std::wstring path = storage_system::get_training_history_path(true);
+    return !path.empty() && storage_system::append_utf8_text(path, text + L"\\r\\n", true);
 }
 
 void training_window::apply_font(HWND control)
