@@ -154,9 +154,11 @@ HTTP 通信や WAV 再生の詳細は扱わず、`tts_controller` へ委譲し�
 - カウンターの識別・保存領域の選択はテンプレートで静的に解決します。実行時の関数名検索、登録テーブル、動的メモリ確保、ロックは使用しません。
 - `get_count()` で現在値を取得し、`reset()` で値を0へ戻します。
 - `make_entry(L"関数名")` で出力用の関数名とカウンター値を取得します。
-- `call_frequency_report::save(...)` に出力対象のエントリーを渡すと、CSV を `%APPDATA%\\VoiceLink\\logs\\` へ保存します。
+- 計測・レポート出力は Debug ビルド限定です。Release ビルドではカウンターを保持せず、`increment()` は空処理、`get_count()` / `reset()` は 0 を返し、`save()` は false を返します。
+- `call_frequency_report::save(...)` に出力対象のエントリーを渡すと、CSV をソリューション直下の `call_frequency\\` へ保存します。保存先は Debug 構成の `$(SolutionDir)` から静的に決定します。
+- `call_frequency\\` は Git 管理対象です。CSV は UTF-8 BOM 付きで、関数名と累積呼び出し回数を記録します。ファイル名には日時・プロセス ID・連番を含め、既存ファイルを上書きしません。
 - 文字列生成・UTF-8 変換・ファイル I/O はレポート保存時だけ実行し、計測対象関数の実行経路には含めません。
-- CSV は UTF-8 BOM 付きで、関数名と累積呼び出し回数を記録します。読み込み機能は設けません。
+- CSV の読み込み機能は設けません。
 - `memory_order_relaxed` を使用し、カウンター値の整合性のみを保証します。ほかのデータとの同期には使用しません。
 
 **利用例**
@@ -208,7 +210,7 @@ GUI や各機能クラスは保存先を直接組み立てず、このクラス�
 | `%APPDATA%\\VoiceLink\\sapi_training.txt` | SAPI に送信した訂正文の履歴 | 実装済み |
 | `%APPDATA%\\VoiceLink\\training_samples\\` | 正解テキストを埋め込んだ録音 WAV | 実装済み |
 | `%APPDATA%\\VoiceLink\\training_templates\\` | 学習文生成テンプレート | 追加予定 |
-| `%APPDATA%\\VoiceLink\\logs\\` | 呼び出し頻度レポート CSV | 実装済み |
+| `call_frequency\\`（ソリューション直下） | Debug ビルドの呼び出し頻度レポート CSV。Git 管理対象 | 実装済み |
 | `%APPDATA%\\VoiceLink\\cache\\` | 再生成可能な一時データ・キャッシュ | 必要になった段階で追加 |
 
 設定ファイルは現状ルート直下に置きます。用途別ディレクトリを追加する場合は、既存ファイルを理由なく移動せず、移行が必要なら旧パスからの読み込みと移行手順を別途定義します。
