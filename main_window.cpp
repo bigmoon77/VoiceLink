@@ -5,6 +5,7 @@
 #include <wrl/client.h>
 
 #include <algorithm>
+#include <cwchar>
 #include <string>
 #include <utility>
 #include <vector>
@@ -19,7 +20,7 @@ constexpr wchar_t main_window::_window_class_name[];
 namespace
 {
     constexpr int window_width = 760;
-    constexpr int window_height = 740;
+    constexpr int window_height = 860;
     constexpr int margin = 16;
     constexpr int control_height = 26;
     constexpr int label_height = 20;
@@ -204,6 +205,103 @@ int main_window::get_selected_engine() const
     return selected == 1 ? 1 : 0;
 }
 
+void main_window::set_gpt_sovits_settings(const gpt_sovits_form_settings& value)
+{
+    if (_gpt_host_edit)
+    {
+        SetWindowTextW(_gpt_host_edit, value.host.c_str());
+    }
+    if (_gpt_port_edit)
+    {
+        SetWindowTextW(_gpt_port_edit, std::to_wstring(value.port).c_str());
+    }
+    if (_gpt_reference_edit)
+    {
+        SetWindowTextW(_gpt_reference_edit, value.reference_audio_path.c_str());
+    }
+    if (_gpt_prompt_edit)
+    {
+        SetWindowTextW(_gpt_prompt_edit, value.prompt_text.c_str());
+    }
+
+    const auto select_language = [](HWND combo, const std::wstring& language)
+    {
+        if (!combo)
+        {
+            return;
+        }
+
+        const LRESULT count = SendMessageW(combo, CB_GETCOUNT, 0, 0);
+        for (LRESULT index = 0; index < count; ++index)
+        {
+            wchar_t item[32]{};
+            SendMessageW(combo, CB_GETLBTEXT, static_cast<WPARAM>(index), reinterpret_cast<LPARAM>(item));
+            if (language == item)
+            {
+                SendMessageW(combo, CB_SETCURSEL, static_cast<WPARAM>(index), 0);
+                return;
+            }
+        }
+        SendMessageW(combo, CB_SETCURSEL, 0, 0);
+    };
+
+    select_language(_gpt_prompt_language_combo, value.prompt_language);
+    select_language(_gpt_text_language_combo, value.text_language);
+}
+
+main_window::gpt_sovits_form_settings main_window::get_gpt_sovits_settings() const
+{
+    gpt_sovits_form_settings value;
+
+    const auto read_text = [](HWND control) -> std::wstring
+    {
+        if (!control)
+        {
+            return {};
+        }
+        const int length = GetWindowTextLengthW(control);
+        std::vector<wchar_t> buffer(static_cast<size_t>(length) + 1, L'\\0');
+        const int copied = GetWindowTextW(control, buffer.data(), length + 1);
+        return std::wstring(buffer.data(), static_cast<size_t>(std::max(copied, 0)));
+    };
+
+    value.host = read_text(_gpt_host_edit);
+    const std::wstring port_text = read_text(_gpt_port_edit);
+    wchar_t* end = nullptr;
+    const unsigned long port = std::wcstoul(port_text.c_str(), &end, 10);
+    if (port_text.empty() || !end || *end != L'\\0' || port == 0 || port > 65535)
+    {
+        value.port = 0;
+    }
+    else
+    {
+        value.port = static_cast<std::uint16_t>(port);
+    }
+
+    value.reference_audio_path = read_text(_gpt_reference_edit);
+    value.prompt_text = read_text(_gpt_prompt_edit);
+
+    const auto read_language = [](HWND combo) -> std::wstring
+    {
+        if (!combo)
+        {
+            return L"ja";
+        }
+        const LRESULT index = SendMessageW(combo, CB_GETCURSEL, 0, 0);
+        if (index == CB_ERR)
+        {
+            return L"ja";
+        }
+        wchar_t language[32]{};
+        SendMessageW(combo, CB_GETLBTEXT, static_cast<WPARAM>(index), reinterpret_cast<LPARAM>(language));
+        return language;
+    };
+
+    value.prompt_language = read_language(_gpt_prompt_language_combo);
+    value.text_language = read_language(_gpt_text_language_combo);
+    return value;
+}
+
 void main_window::set_voicevox_path(const std::wstring& path)
 {
     if (_engine_path_edit)
@@ -340,6 +438,13 @@ void main_window::set_engine_changed_callback(std::function<void(int)> callback)
     _engine_changed_callback = std::move(callback);
 }
 
+void main_window::set_gpt_sovits_settings_callback(
+    std::function<void(const gpt_sovits_form_settings&)> callback
+)
+{
+    _gpt_sovits_settings_callback = std::move(callback);
+}
+
 void main_window::set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback)
 {
     _message_callback = std::move(callback);
@@ -461,9 +566,73 @@ LRESULT main_window::handle_message(UINT message, WPARAM w_param, LPARAM l_param
             return 0;
 
         case engine_select_combo_id:
-            if (HIWORD(w_param) == CBN_SELCHANGE && _engine_changed_callback)
+            if (HIWORD(w_param) == CBN_SELCHANGE)
             {
-                _engine_changed_callback(get_selected_engine());
+                const int engine_index = get_selected_engine();
+                const bool use_gpt_sovits = engine_index == 1;
+                const int control_ids[] = {
+                    gpt_host_label_id, gpt_host_edit_id, gpt_port_label_id, gpt_port_edit_id,
+                    gpt_reference_label_id, gpt_reference_edit_id, gpt_reference_browse_button_id,
+                    gpt_prompt_label_id, gpt_prompt_edit_id, gpt_prompt_language_label_id,
+                    gpt_prompt_language_combo_id, gpt_text_language_label_id,
+                    gpt_text_language_combo_id, gpt_settings_apply_button_id
+                };
+                for (int control_id : control_ids)
+                {
+                    HWND control = GetDlgItem(_window, control_id);
+                    if (control)
+                    {
+                        ShowWindow(control, use_gpt_sovits ? SW_SHOW : SW_HIDE);
+                    }
+                }
+                const int voicevox_control_ids[] = {
+                    engine_path_label_id, engine_path_edit_id,
+                    engine_path_browse_button_id, engine_path_apply_button_id
+                };
+                for (int control_id : voicevox_control_ids)
+                {
+                    HWND control = GetDlgItem(_window, control_id);
+                    if (control)
+                    {
+                        ShowWindow(control, use_gpt_sovits ? SW_HIDE : SW_SHOW);
+                    }
+                }
+                layout_controls(
+                    static_cast<int>(LOWORD(GetWindowLongPtrW(_window, GWL_STYLE)) ? 0 : 0),
+                    0
+                );
+                RECT client{};
+                GetClientRect(_window, &client);
+                layout_controls(client.right, client.bottom);
+                if (_engine_changed_callback)
+                {
+                    _engine_changed_callback(engine_index);
+                }
+            }
+            return 0;
+
+        case gpt_reference_browse_button_id:
+            if (HIWORD(w_param) == BN_CLICKED)
+            {
+                browse_gpt_reference_audio();
+            }
+            return 0;
+
+        case gpt_settings_apply_button_id:
+            if (HIWORD(w_param) == BN_CLICKED && _gpt_sovits_settings_callback)
+            {
+                const gpt_sovits_form_settings value = get_gpt_sovits_settings();
+                if (value.host.empty() || value.port == 0)
+                {
+                    set_status(L"GPT-SoVITS のホスト名とポート番号を確認してください。");
+                    return 0;
+                }
+                if (value.reference_audio_path.empty() || value.prompt_text.empty())
+                {
+                    set_status(L"参照音声と参照テキストを設定してください。");
+                    return 0;
+                }
+                _gpt_sovits_settings_callback(value);
             }
             return 0;
 
@@ -507,6 +676,105 @@ bool main_window::create_controls()
         SendMessageW(_engine_select_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"GPT-SoVITS"));
         SendMessageW(_engine_select_combo, CB_SETCURSEL, 0, 0);
     }
+
+    _gpt_host_label = CreateWindowExW(
+        0, L"STATIC", L"API Host",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_host_label_id)),
+        _instance, nullptr
+    );
+    _gpt_host_edit = CreateWindowExW(
+        WS_EX_CLIENTEDGE, L"EDIT", L"127.0.0.1",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_host_edit_id)),
+        _instance, nullptr
+    );
+    _gpt_port_label = CreateWindowExW(
+        0, L"STATIC", L"Port",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_port_label_id)),
+        _instance, nullptr
+    );
+    _gpt_port_edit = CreateWindowExW(
+        WS_EX_CLIENTEDGE, L"EDIT", L"9880",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_NUMBER,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_port_edit_id)),
+        _instance, nullptr
+    );
+    _gpt_reference_label = CreateWindowExW(
+        0, L"STATIC", L"Reference Audio",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_reference_label_id)),
+        _instance, nullptr
+    );
+    _gpt_reference_edit = CreateWindowExW(
+        WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_reference_edit_id)),
+        _instance, nullptr
+    );
+    _gpt_reference_browse_button = CreateWindowExW(
+        0, L"BUTTON", L"Browse...",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_reference_browse_button_id)),
+        _instance, nullptr
+    );
+    _gpt_prompt_label = CreateWindowExW(
+        0, L"STATIC", L"Reference Text",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_prompt_label_id)),
+        _instance, nullptr
+    );
+    _gpt_prompt_edit = CreateWindowExW(
+        WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_prompt_edit_id)),
+        _instance, nullptr
+    );
+    _gpt_prompt_language_label = CreateWindowExW(
+        0, L"STATIC", L"Reference Language",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_prompt_language_label_id)),
+        _instance, nullptr
+    );
+    _gpt_prompt_language_combo = CreateWindowExW(
+        0, L"COMBOBOX", L"",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_prompt_language_combo_id)),
+        _instance, nullptr
+    );
+    _gpt_text_language_label = CreateWindowExW(
+        0, L"STATIC", L"Output Language",
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_text_language_label_id)),
+        _instance, nullptr
+    );
+    _gpt_text_language_combo = CreateWindowExW(
+        0, L"COMBOBOX", L"",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_text_language_combo_id)),
+        _instance, nullptr
+    );
+    _gpt_settings_apply_button = CreateWindowExW(
+        0, L"BUTTON", L"Apply GPT-SoVITS Settings",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+        0, 0, 0, 0, _window,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(gpt_settings_apply_button_id)),
+        _instance, nullptr
+    );
 
     _engine_path_label = CreateWindowExW(
         0, L"STATIC", L"VOICEVOX Engine (run.exe)",
@@ -646,7 +914,12 @@ bool main_window::create_controls()
     );
 
     const bool controls_created =
-        _engine_select_label && _engine_select_combo && _engine_path_label && _engine_path_edit && _engine_path_browse_button &&
+        _engine_select_label && _engine_select_combo &&
+        _gpt_host_label && _gpt_host_edit && _gpt_port_label && _gpt_port_edit &&
+        _gpt_reference_label && _gpt_reference_edit && _gpt_reference_browse_button &&
+        _gpt_prompt_label && _gpt_prompt_edit && _gpt_prompt_language_label &&
+        _gpt_prompt_language_combo && _gpt_text_language_label && _gpt_text_language_combo &&
+        _gpt_settings_apply_button && _engine_path_label && _engine_path_edit && _engine_path_browse_button &&
         _engine_path_apply_button && _speaker_label && _speaker_combo &&
         _reconnect_button && _text_label && _text_edit && _volume_label && _volume_slider &&
         _volume_test_button && _play_button && _status_text &&
@@ -657,12 +930,35 @@ bool main_window::create_controls()
         return false;
     }
 
+    const wchar_t* languages[] = { L"ja", L"en", L"zh", L"ko", L"yue", L"auto" };
+    for (const wchar_t* language : languages)
+    {
+        SendMessageW(_gpt_prompt_language_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(language));
+        SendMessageW(_gpt_text_language_combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(language));
+    }
+    SendMessageW(_gpt_prompt_language_combo, CB_SETCURSEL, 0, 0);
+    SendMessageW(_gpt_text_language_combo, CB_SETCURSEL, 0, 0);
+
     SendMessageW(_volume_slider, TBM_SETRANGE, TRUE, MAKELONG(0, 100));
     SendMessageW(_volume_slider, TBM_SETPAGESIZE, 0, 10);
     SendMessageW(_volume_slider, TBM_SETPOS, TRUE, 100);
 
     apply_control_font(_engine_select_label);
     apply_control_font(_engine_select_combo);
+    apply_control_font(_gpt_host_label);
+    apply_control_font(_gpt_host_edit);
+    apply_control_font(_gpt_port_label);
+    apply_control_font(_gpt_port_edit);
+    apply_control_font(_gpt_reference_label);
+    apply_control_font(_gpt_reference_edit);
+    apply_control_font(_gpt_reference_browse_button);
+    apply_control_font(_gpt_prompt_label);
+    apply_control_font(_gpt_prompt_edit);
+    apply_control_font(_gpt_prompt_language_label);
+    apply_control_font(_gpt_prompt_language_combo);
+    apply_control_font(_gpt_text_language_label);
+    apply_control_font(_gpt_text_language_combo);
+    apply_control_font(_gpt_settings_apply_button);
     apply_control_font(_engine_path_label);
     apply_control_font(_engine_path_edit);
     apply_control_font(_engine_path_browse_button);
@@ -679,6 +975,18 @@ bool main_window::create_controls()
     apply_control_font(_recognition_stop_button);
     apply_control_font(_training_button);
     apply_control_font(_status_text);
+
+    const int gpt_control_ids[] = {
+        gpt_host_label_id, gpt_host_edit_id, gpt_port_label_id, gpt_port_edit_id,
+        gpt_reference_label_id, gpt_reference_edit_id, gpt_reference_browse_button_id,
+        gpt_prompt_label_id, gpt_prompt_edit_id, gpt_prompt_language_label_id,
+        gpt_prompt_language_combo_id, gpt_text_language_label_id,
+        gpt_text_language_combo_id, gpt_settings_apply_button_id
+    };
+    for (int control_id : gpt_control_ids)
+    {
+        ShowWindow(GetDlgItem(_window, control_id), SW_HIDE);
+    }
 
     return true;
 }
@@ -699,20 +1007,53 @@ void main_window::layout_controls(int width, int height)
     const int status_y = buttons_y + (control_height - label_height) / 2;
     const int volume_y = buttons_y - margin - control_height;
     const int volume_label_y = volume_y - label_height;
+    const bool use_gpt_sovits = get_selected_engine() == 1;
     const int engine_select_y = margin + label_height;
-    const int path_y = engine_select_y + control_height + margin + label_height;
+    const int settings_top = engine_select_y + control_height + margin;
+    const int path_y = settings_top + label_height;
     const int path_button_total_width = path_button_width * 2 + margin;
-    const int speaker_label_y = path_y + control_height + margin;
+    const int speaker_label_y = use_gpt_sovits ? settings_top + 238 : path_y + label_height + control_height + margin;
     const int edit_y = speaker_label_y + label_height + control_height + margin + label_height;
     const int edit_height = std::max(volume_label_y - margin - edit_y - margin, 60);
     const int speaker_combo_width = std::max(content_width - reconnect_button_width - margin, 80);
 
     MoveWindow(_engine_select_label, margin, margin, content_width, label_height, TRUE);
     MoveWindow(_engine_select_combo, margin, engine_select_y, 220, control_height * 5, TRUE);
-    MoveWindow(_engine_path_label, margin, path_y - label_height, content_width, label_height, TRUE);
-    MoveWindow(_engine_path_edit, margin, path_y, std::max(content_width - path_button_total_width - margin, 100), control_height, TRUE);
-    MoveWindow(_engine_path_browse_button, width - margin - path_button_total_width, path_y, path_button_width, control_height, TRUE);
-    MoveWindow(_engine_path_apply_button, width - margin - path_button_width, path_y, path_button_width, control_height, TRUE);
+
+    const int half_width = std::max((content_width - margin) / 2, 100);
+    const int small_label_width = 90;
+    const int field_x = margin + small_label_width;
+    const int field_width = std::max(half_width - small_label_width - margin, 80);
+    MoveWindow(_gpt_host_label, margin, settings_top, small_label_width, control_height, TRUE);
+    MoveWindow(_gpt_host_edit, field_x, settings_top, field_width, control_height, TRUE);
+    MoveWindow(_gpt_port_label, margin + half_width + margin, settings_top, small_label_width, control_height, TRUE);
+    MoveWindow(_gpt_port_edit, margin + half_width + margin + small_label_width, settings_top,
+        std::max(half_width - small_label_width, 80), control_height, TRUE);
+
+    const int reference_y = settings_top + control_height + margin;
+    MoveWindow(_gpt_reference_label, margin, reference_y, small_label_width, control_height, TRUE);
+    MoveWindow(_gpt_reference_edit, field_x, reference_y,
+        std::max(content_width - small_label_width - path_button_width - margin, 100), control_height, TRUE);
+    MoveWindow(_gpt_reference_browse_button, width - margin - path_button_width, reference_y,
+        path_button_width, control_height, TRUE);
+
+    const int prompt_label_y = reference_y + control_height + margin;
+    const int prompt_y = prompt_label_y + label_height;
+    MoveWindow(_gpt_prompt_label, margin, prompt_label_y, content_width, label_height, TRUE);
+    MoveWindow(_gpt_prompt_edit, margin, prompt_y, content_width, 54, TRUE);
+
+    const int language_y = prompt_y + 54 + margin;
+    MoveWindow(_gpt_prompt_language_label, margin, language_y, small_label_width + 30, control_height, TRUE);
+    MoveWindow(_gpt_prompt_language_combo, margin + small_label_width + 30, language_y, 100, control_height * 5, TRUE);
+    MoveWindow(_gpt_text_language_label, margin + half_width + margin, language_y, small_label_width + 20, control_height, TRUE);
+    MoveWindow(_gpt_text_language_combo, margin + half_width + margin + small_label_width + 20,
+        language_y, 100, control_height * 5, TRUE);
+    MoveWindow(_gpt_settings_apply_button, width - margin - 220, language_y + control_height + margin,
+        220, control_height, TRUE);
+    MoveWindow(_engine_path_label, margin, path_y, content_width, label_height, TRUE);
+    MoveWindow(_engine_path_edit, margin, path_y + label_height, std::max(content_width - path_button_total_width - margin, 100), control_height, TRUE);
+    MoveWindow(_engine_path_browse_button, width - margin - path_button_total_width, path_y + label_height, path_button_width, control_height, TRUE);
+    MoveWindow(_engine_path_apply_button, width - margin - path_button_width, path_y + label_height, path_button_width, control_height, TRUE);
 
     MoveWindow(_speaker_label, margin, speaker_label_y, content_width, label_height, TRUE);
     MoveWindow(_speaker_combo, margin, speaker_label_y + label_height, speaker_combo_width, 240, TRUE);
@@ -774,6 +1115,61 @@ void main_window::layout_controls(int width, int height)
     const int status_x = margin + recognition_start_button_width + margin + recognition_stop_button_width + margin + training_button_width + margin;
     const int status_width = std::max(width - margin - play_button_width - margin - status_x, 80);
     MoveWindow(_status_text, status_x, status_y, status_width, label_height, TRUE);
+}
+
+void main_window::browse_gpt_reference_audio()
+{
+    const HRESULT apartment_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    const bool uninitialize_apartment = SUCCEEDED(apartment_result);
+    if (FAILED(apartment_result) && apartment_result != RPC_E_CHANGED_MODE)
+    {
+        set_status(L"ファイル選択ダイアログを初期化できませんでした。");
+        return;
+    }
+
+    Microsoft::WRL::ComPtr<IFileOpenDialog> dialog;
+    HRESULT result = CoCreateInstance(
+        CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
+        IID_PPV_ARGS(dialog.GetAddressOf())
+    );
+    if (SUCCEEDED(result))
+    {
+        const COMDLG_FILTERSPEC filters[] = {
+            { L"Audio files", L"*.wav;*.mp3;*.flac;*.ogg" },
+            { L"WAV files", L"*.wav" },
+            { L"All files", L"*.*" }
+        };
+        dialog->SetFileTypes(3, filters);
+        dialog->SetTitle(L"GPT-SoVITS の参照音声を選択");
+
+        FILEOPENDIALOGOPTIONS options{};
+        if (SUCCEEDED(dialog->GetOptions(&options)))
+        {
+            dialog->SetOptions(options | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST | FOS_FORCEFILESYSTEM);
+        }
+        result = dialog->Show(_window);
+    }
+
+    if (SUCCEEDED(result))
+    {
+        Microsoft::WRL::ComPtr<IShellItem> item;
+        result = dialog->GetResult(item.GetAddressOf());
+        if (SUCCEEDED(result))
+        {
+            PWSTR selected_path = nullptr;
+            result = item->GetDisplayName(SIGDN_FILESYSPATH, &selected_path);
+            if (SUCCEEDED(result) && selected_path)
+            {
+                SetWindowTextW(_gpt_reference_edit, selected_path);
+                CoTaskMemFree(selected_path);
+            }
+        }
+    }
+
+    if (uninitialize_apartment)
+    {
+        CoUninitialize();
+    }
 }
 
 void main_window::browse_voicevox_path()
