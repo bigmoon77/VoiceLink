@@ -196,17 +196,35 @@ bool storage_system::append_utf8_text(const std::wstring& path, const std::wstri
 {
     std::vector<std::uint8_t> data;
     if (!encode_utf8(text, data, false)) return false;
-    HANDLE file = CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return false;
-    LARGE_INTEGER size{};
-    bool success = GetFileSizeEx(file, &size) != FALSE;
-    if (success && size.QuadPart == 0 && bom)
+
+    const std::wstring lock_path = path + L".lock";
+    HANDLE lock = INVALID_HANDLE_VALUE;
+    for (unsigned int attempt = 0; attempt < 1000; ++attempt)
     {
-        const std::vector<std::uint8_t> mark{ 0xEF, 0xBB, 0xBF };
-        success = write_all(file, mark);
+        lock = CreateFileW(lock_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, nullptr);
+        if (lock != INVALID_HANDLE_VALUE) break;
+        if (GetLastError() != ERROR_FILE_EXISTS && GetLastError() != ERROR_ALREADY_EXISTS) return false;
+        Sleep(10);
     }
-    if (success) success = write_all(file, data);
-    CloseHandle(file);
+    if (lock == INVALID_HANDLE_VALUE) return false;
+
+    HANDLE file = CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    bool success = file != INVALID_HANDLE_VALUE;
+    if (success)
+    {
+        LARGE_INTEGER size{};
+        success = GetFileSizeEx(file, &size) != FALSE;
+        if (success && size.QuadPart == 0 && bom)
+        {
+            const std::vector<std::uint8_t> mark{ 0xEF, 0xBB, 0xBF };
+            success = write_all(file, mark);
+        }
+        if (success) success = write_all(file, data);
+        CloseHandle(file);
+    }
+
+    CloseHandle(lock);
+    DeleteFileW(lock_path.c_str());
     return success;
 }
 
