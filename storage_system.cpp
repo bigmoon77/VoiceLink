@@ -209,7 +209,7 @@ bool storage_system::append_utf8_text(const std::wstring& path, const std::wstri
     }
     if (lock == INVALID_HANDLE_VALUE) return false;
 
-    HANDLE file = CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE | FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     bool success = file != INVALID_HANDLE_VALUE;
     if (success)
     {
