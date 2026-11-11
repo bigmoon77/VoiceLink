@@ -5,6 +5,7 @@
 #include <cwchar>
 #include <atomic>
 #include <limits>
+#include <cstring>
 
 namespace
 {
@@ -39,6 +40,64 @@ namespace
         const unsigned long long count = ++temporary_counter;
         return std::to_wstring(GetCurrentProcessId()) + L"_" +
             std::to_wstring(GetTickCount64()) + L"_" + std::to_wstring(count);
+    }
+
+
+    constexpr std::uint32_t training_text_chunk_version = 1;
+    std::uint32_t read_u32_le(const std::vector<std::uint8_t>& d,std::size_t o)
+    { return static_cast<std::uint32_t>(d[o]) | (static_cast<std::uint32_t>(d[o+1])<<8) | (static_cast<std::uint32_t>(d[o+2])<<16) | (static_cast<std::uint32_t>(d[o+3])<<24); }
+    void append_u32_le(std::vector<std::uint8_t>& d,std::uint32_t v)
+    { d.push_back(static_cast<std::uint8_t>(v)); d.push_back(static_cast<std::uint8_t>(v>>8)); d.push_back(static_cast<std::uint8_t>(v>>16)); d.push_back(static_cast<std::uint8_t>(v>>24)); }
+    bool decode_utf8(const std::uint8_t* d,std::size_t n,std::wstring& text)
+    {
+        if(n==0){text.clear();return true;} if(n>static_cast<std::size_t>(INT_MAX))return false;
+        const int count=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,reinterpret_cast<const char*>(d),static_cast<int>(n),nullptr,0);
+        if(count<=0)return false; text.resize(static_cast<std::size_t>(count));
+        return MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,reinterpret_cast<const char*>(d),static_cast<int>(n),text.data(),count)==count;
+    }
+    storage_system::training_text_state extract_training_text(const std::vector<std::uint8_t>& wav,std::wstring& text)
+    {
+        using state=storage_system::training_text_state;
+        if(wav.size()<12||std::memcmp(wav.data(),"RIFF",4)!=0||std::memcmp(wav.data()+8,"WAVE",4)!=0)return state::invalid;
+        const std::uint64_t end64=8ull+read_u32_le(wav,4); if(end64<12||end64>wav.size())return state::invalid;
+        const std::size_t end=static_cast<std::size_t>(end64); std::size_t off=12; bool found=false;
+        while(off<end)
+        {
+            if(end-off<8)return state::invalid; const std::uint32_t size=read_u32_le(wav,off+4);
+            const std::size_t payload=off+8; if(size>end-payload)return state::invalid;
+            const std::size_t next=payload+static_cast<std::size_t>(size)+(size&1u); if(next>end)return state::invalid;
+            if(std::memcmp(wav.data()+off,"vtxt",4)==0)
+            {
+                if(found||size<4||read_u32_le(wav,payload)!=training_text_chunk_version||!decode_utf8(wav.data()+payload+4,size-4,text))return state::invalid;
+                found=true;
+            }
+            off=next;
+        }
+        return found?state::found:state::missing;
+    }
+    bool embed_training_text(const std::vector<std::uint8_t>& src,const std::wstring& text,std::vector<std::uint8_t>& out)
+    {
+        if(src.size()<12||std::memcmp(src.data(),"RIFF",4)!=0||std::memcmp(src.data()+8,"WAVE",4)!=0)return false;
+        const std::uint64_t end64=8ull+read_u32_le(src,4); if(end64<12||end64>src.size())return false;
+        const std::size_t end=static_cast<std::size_t>(end64); std::vector<std::uint8_t> encoded;
+        if(!encode_utf8(text,encoded,false)||encoded.size()>static_cast<std::size_t>(MAXDWORD)-4)return false;
+        out.assign(src.begin(),src.begin()+12); std::size_t off=12;
+        while(off<end)
+        {
+            if(end-off<8)return false; const std::uint32_t size=read_u32_le(src,off+4);
+            const std::size_t payload=off+8; if(size>end-payload)return false;
+            const std::size_t next=payload+static_cast<std::size_t>(size)+(size&1u); if(next>end)return false;
+            if(std::memcmp(src.data()+off,"vtxt",4)!=0)out.insert(out.end(),src.begin()+off,src.begin()+next);
+            off=next;
+        }
+        out.insert(out.end(),{'v','t','x','t'}); append_u32_le(out,static_cast<std::uint32_t>(encoded.size()+4));
+        append_u32_le(out,training_text_chunk_version); out.insert(out.end(),encoded.begin(),encoded.end());
+        if((encoded.size()+4)&1u)out.push_back(0);
+        out.insert(out.end(),src.begin()+end,src.end());
+        const std::size_t riff_size=out.size()-8-(src.size()-end); if(riff_size>MAXDWORD)return false;
+        const std::uint32_t v=static_cast<std::uint32_t>(riff_size);
+        out[4]=static_cast<std::uint8_t>(v);out[5]=static_cast<std::uint8_t>(v>>8);out[6]=static_cast<std::uint8_t>(v>>16);out[7]=static_cast<std::uint8_t>(v>>24);
+        return true;
     }
 
     bool write_all(HANDLE file, const std::vector<std::uint8_t>& data)
@@ -229,79 +288,38 @@ bool storage_system::append_utf8_text(const std::wstring& path, const std::wstri
     return success;
 }
 
-bool storage_system::save_training_sample(
-    const std::vector<std::uint8_t>& wav_data,
-    const std::wstring& text,
-    std::wstring& wav_path
-)
+
+storage_system::training_text_state storage_system::read_training_sample_text(const std::wstring& path,std::wstring& text)
 {
-    const std::wstring directory_path = get_directory_path(directory::training_samples, true);
-    if (directory_path.empty()) return false;
-
-    std::vector<std::uint8_t> text_data;
-    if (!encode_utf8(text, text_data, true)) return false;
-
-    SYSTEMTIME time{};
-    GetLocalTime(&time);
-    wchar_t timestamp[64]{};
-    swprintf_s(timestamp, L"sample_%04u%02u%02u_%02u%02u%02u_%03u",
-        time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds);
-    const std::wstring base = timestamp;
-
-    for (unsigned int suffix = 0; suffix < 100000; ++suffix)
+    std::vector<std::uint8_t> wav; if(!read_binary(path,wav))return training_text_state::invalid;
+    return extract_training_text(wav,text);
+}
+bool storage_system::write_training_sample_text_atomic(const std::wstring& path,const std::wstring& text)
+{
+    std::vector<std::uint8_t> wav,updated; if(!read_binary(path,wav)||!embed_training_text(wav,text,updated))return false;
+    return write_binary_atomic(path,updated);
+}
+bool storage_system::save_training_sample(const std::vector<std::uint8_t>& wav_data,const std::wstring& text,std::wstring& wav_path)
+{
+    const std::wstring dir=get_directory_path(directory::training_samples,true); if(dir.empty())return false;
+    std::vector<std::uint8_t> embedded; if(!embed_training_text(wav_data,text,embedded))return false;
+    SYSTEMTIME time{}; GetLocalTime(&time); wchar_t timestamp[64]{};
+    swprintf_s(timestamp,L"sample_%04u%02u%02u_%02u%02u%02u_%03u",time.wYear,time.wMonth,time.wDay,time.wHour,time.wMinute,time.wSecond,time.wMilliseconds);
+    const std::wstring base=timestamp;
+    for(unsigned int suffix=0;suffix<100000;++suffix)
     {
-        const std::wstring name = suffix == 0 ? base : base + L"_" + std::to_wstring(suffix);
-        const std::wstring stem = directory_path + L"\\" + name;
-        const std::wstring wav_final = stem + L".wav";
-        const std::wstring text_final = stem + L".txt";
-        const std::wstring lock_path = stem + L".lock";
-        if (GetFileAttributesW(wav_final.c_str()) != INVALID_FILE_ATTRIBUTES ||
-            GetFileAttributesW(text_final.c_str()) != INVALID_FILE_ATTRIBUTES) continue;
-
-        HANDLE lock = CreateFileW(lock_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, nullptr);
-        if (lock == INVALID_HANDLE_VALUE)
-        {
-            const DWORD error = GetLastError();
-            if (error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS) continue;
-            return false;
-        }
-
-        const std::wstring suffix_id = L"." + make_unique_suffix() + L".tmp";
-        const std::wstring wav_temp = stem + suffix_id + L"_wav.tmp";
-        const std::wstring text_temp = stem + suffix_id + L"_text.tmp";
-        bool success = write_binary_exclusive(wav_temp, wav_data) &&
-            write_binary_exclusive(text_temp, text_data);
-        DWORD move_error = ERROR_SUCCESS;
-
-        if (success)
-        {
-            success = MoveFileExW(wav_temp.c_str(), wav_final.c_str(), MOVEFILE_WRITE_THROUGH) != FALSE;
-            if (!success) move_error = GetLastError();
-        }
-        if (success)
-        {
-            success = MoveFileExW(text_temp.c_str(), text_final.c_str(), MOVEFILE_WRITE_THROUGH) != FALSE;
-            if (!success)
-            {
-                move_error = GetLastError();
-                DeleteFileW(wav_final.c_str());
-            }
-        }
-
-        if (!success)
-        {
-            DeleteFileW(wav_temp.c_str());
-            DeleteFileW(text_temp.c_str());
-        }
-        CloseHandle(lock);
-        DeleteFileW(lock_path.c_str());
-
-        if (success)
-        {
-            wav_path = wav_final;
-            return true;
-        }
-        if (move_error != ERROR_ALREADY_EXISTS && move_error != ERROR_FILE_EXISTS) return false;
+        const std::wstring name=suffix==0?base:base+L"_"+std::to_wstring(suffix);
+        const std::wstring stem=dir+L"\\"+name,wav_final=stem+L".wav",lock_path=stem+L".lock";
+        if(GetFileAttributesW(wav_final.c_str())!=INVALID_FILE_ATTRIBUTES)continue;
+        HANDLE lock=CreateFileW(lock_path.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_TEMPORARY,nullptr);
+        if(lock==INVALID_HANDLE_VALUE){const DWORD e=GetLastError();if(e==ERROR_FILE_EXISTS||e==ERROR_ALREADY_EXISTS)continue;return false;}
+        const std::wstring temp=stem+L"."+make_unique_suffix()+L".tmp";
+        bool success=write_binary_exclusive(temp,embedded); DWORD error=success?ERROR_SUCCESS:GetLastError();
+        if(success){success=MoveFileExW(temp.c_str(),wav_final.c_str(),MOVEFILE_WRITE_THROUGH)!=FALSE;if(!success)error=GetLastError();}
+        if(!success)DeleteFileW(temp.c_str());
+        CloseHandle(lock); DeleteFileW(lock_path.c_str());
+        if(success){wav_path=wav_final;return true;}
+        if(error!=ERROR_ALREADY_EXISTS&&error!=ERROR_FILE_EXISTS)return false;
     }
     return false;
 }
