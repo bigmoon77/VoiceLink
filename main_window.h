@@ -6,6 +6,7 @@
 
 #include <Windows.h>
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
@@ -13,6 +14,16 @@
 class main_window
 {
 public:
+    struct gpt_sovits_form_settings
+    {
+        std::wstring host = L"127.0.0.1";
+        std::uint16_t port = 9880;
+        std::wstring reference_audio_path;
+        std::wstring prompt_text;
+        std::wstring prompt_language = L"ja";
+        std::wstring text_language = L"ja";
+    };
+
     struct speaker_item
     {
         std::wstring name;
@@ -37,6 +48,8 @@ public:
     void set_voicevox_path_enabled(bool enabled);
     void set_selected_engine(int engine_index);
     int get_selected_engine() const;
+    void set_gpt_sovits_settings(const gpt_sovits_form_settings& value);
+    gpt_sovits_form_settings get_gpt_sovits_settings() const;
     void set_volume(int volume);
     void set_voicevox_path(const std::wstring& path);
     std::wstring get_voicevox_path() const;
@@ -51,6 +64,9 @@ public:
     void set_volume_test_callback(std::function<void()> callback);
     void set_voicevox_path_callback(std::function<void(const std::wstring&)> callback);
     void set_engine_changed_callback(std::function<void(int)> callback);
+    void set_gpt_sovits_settings_callback(
+        std::function<void(const gpt_sovits_form_settings&)> callback
+    );
     void set_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback);
     void set_speech_message_callback(std::function<bool(UINT, WPARAM, LPARAM)> callback);
     HWND get_handle() const;
@@ -62,6 +78,20 @@ private:
     {
         engine_select_label_id = 1018,
         engine_select_combo_id = 1019,
+        gpt_host_label_id = 1020,
+        gpt_host_edit_id,
+        gpt_port_label_id,
+        gpt_port_edit_id,
+        gpt_reference_label_id,
+        gpt_reference_edit_id,
+        gpt_reference_browse_button_id,
+        gpt_prompt_label_id,
+        gpt_prompt_edit_id,
+        gpt_prompt_language_label_id,
+        gpt_prompt_language_combo_id,
+        gpt_text_language_label_id,
+        gpt_text_language_combo_id,
+        gpt_settings_apply_button_id,
         speaker_label_id = 1001,
         speaker_combo_id,
         reconnect_button_id,
@@ -89,11 +119,26 @@ private:
     void apply_control_font(HWND control);
     void update_volume_label(int volume);
     void browse_voicevox_path();
+    void browse_gpt_reference_audio();
 
     HINSTANCE _instance = nullptr;
     HWND _window = nullptr;
     HWND _engine_select_label = nullptr;
     HWND _engine_select_combo = nullptr;
+    HWND _gpt_host_label = nullptr;
+    HWND _gpt_host_edit = nullptr;
+    HWND _gpt_port_label = nullptr;
+    HWND _gpt_port_edit = nullptr;
+    HWND _gpt_reference_label = nullptr;
+    HWND _gpt_reference_edit = nullptr;
+    HWND _gpt_reference_browse_button = nullptr;
+    HWND _gpt_prompt_label = nullptr;
+    HWND _gpt_prompt_edit = nullptr;
+    HWND _gpt_prompt_language_label = nullptr;
+    HWND _gpt_prompt_language_combo = nullptr;
+    HWND _gpt_text_language_label = nullptr;
+    HWND _gpt_text_language_combo = nullptr;
+    HWND _gpt_settings_apply_button = nullptr;
     HWND _engine_path_label = nullptr;
     HWND _engine_path_edit = nullptr;
     HWND _engine_path_browse_button = nullptr;
@@ -120,6 +165,7 @@ private:
     std::function<void()> _volume_test_callback;
     std::function<void(const std::wstring&)> _voicevox_path_callback;
     std::function<void(int)> _engine_changed_callback;
+    std::function<void(const gpt_sovits_form_settings&)> _gpt_sovits_settings_callback;
     std::function<bool(UINT, WPARAM, LPARAM)> _message_callback;
     std::function<bool(UINT, WPARAM, LPARAM)> _speech_message_callback;
 };
