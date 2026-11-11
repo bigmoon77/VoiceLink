@@ -119,7 +119,7 @@ void tts_controller::initialize_async()
     const std::wstring engine_path = _voicevox_path;
     const bool use_gpt_sovits = _use_gpt_sovits;
 
-    start_worker([this, engine_path]()
+    start_worker([this, engine_path, use_gpt_sovits]()
     {
         speakers_result result;
         std::vector<tts_engine::speaker_style> engine_speakers;
