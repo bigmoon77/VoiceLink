@@ -127,6 +127,25 @@ bool gpt_sovits_engine::initialize(
     std::wstring& error
 )
 {
+    if (_settings.reference_audio_path.empty())
+    {
+        error = L"GPT-SoVITS の参照音声ファイルが設定されていません。";
+        return false;
+    }
+    if (_settings.prompt_text.empty())
+    {
+        error = L"GPT-SoVITS の参照音声テキストが設定されていません。";
+        return false;
+    }
+
+    const DWORD audio_attributes = GetFileAttributesW(_settings.reference_audio_path.c_str());
+    if (audio_attributes == INVALID_FILE_ATTRIBUTES ||
+        (audio_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+    {
+        error = L"GPT-SoVITS の参照音声ファイルが見つかりません。";
+        return false;
+    }
+
     if (!ensure_connection(error))
     {
         return false;
