@@ -324,7 +324,7 @@ std::wstring main_window::get_voicevox_path() const
     return std::wstring(buffer.data(), static_cast<size_t>(std::max(copied, 0)));
 }
 
-void main_window::set_voicevox_path_enabled(bool enabled)
+void main_window::set_engine_settings_enabled(bool enabled)
 {
     if (_engine_select_combo)
     {
