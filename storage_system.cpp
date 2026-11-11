@@ -263,7 +263,7 @@ bool storage_system::save_training_sample(
             wav_path = wav_final;
             return true;
         }
-        if (GetLastError() != ERROR_ALREADY_EXISTS) return false;
+        if (move_error != ERROR_ALREADY_EXISTS && move_error != ERROR_FILE_EXISTS) return false;
     }
     return false;
 }
