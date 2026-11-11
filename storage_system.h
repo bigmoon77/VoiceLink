@@ -33,6 +33,8 @@ public:
     // 想定頻度: 起動時の履歴読み込みと旧形式サンプル移行時のみ。
     static bool read_utf8_text(const std::wstring& path, std::wstring& text);
     // 想定頻度: 現行の録音サンプル保存経路では未使用。互換・汎用用途で必要時。
+    static bool write_utf8_text_new(const std::wstring& path, const std::wstring& text);
+    // 想定頻度: 現行の録音サンプル保存経路では未使用。互換・汎用用途で必要時。
     static bool write_utf8_text_atomic(const std::wstring& path, const std::wstring& text);
     // 想定頻度: 認識結果の確定ごとに最大1回。
     static bool append_utf8_text(const std::wstring& path, const std::wstring& text, bool bom);
