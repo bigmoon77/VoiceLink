@@ -27,6 +27,9 @@ public:
     static bool read_utf8_text(const std::wstring& path, std::wstring& text);
     static bool write_utf8_text_atomic(const std::wstring& path, const std::wstring& text);
     static bool append_utf8_text(const std::wstring& path, const std::wstring& text, bool bom);
+    enum class training_text_state { found, missing, invalid };
+    static training_text_state read_training_sample_text(const std::wstring& wav_path, std::wstring& text);
+    static bool write_training_sample_text_atomic(const std::wstring& wav_path, const std::wstring& text);
     static bool save_training_sample(
         const std::vector<std::uint8_t>& wav_data,
         const std::wstring& text,
