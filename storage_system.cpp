@@ -145,6 +145,20 @@ bool storage_system::write_binary_new(const std::wstring& path, const std::vecto
     return write_binary_exclusive(path, data);
 }
 
+bool storage_system::write_binary_atomic(const std::wstring& path, const std::vector<std::uint8_t>& data)
+{
+    const std::wstring temporary = path + L"." + make_unique_suffix() + L".tmp";
+    HANDLE file = CreateFileW(temporary.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    const bool written = write_all(file, data);
+    CloseHandle(file);
+    const bool moved = written && MoveFileExW(
+        temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH
+    ) != FALSE;
+    if (!moved) DeleteFileW(temporary.c_str());
+    return moved;
+}
+
 bool storage_system::read_utf8_text(const std::wstring& path, std::wstring& text)
 {
     std::vector<std::uint8_t> data;
