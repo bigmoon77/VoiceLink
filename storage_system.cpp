@@ -350,8 +350,7 @@ bool storage_system::read_utf8_text(const std::wstring& path, std::wstring& text
         reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), text.data(), count) == count;
 }
 
-// 想定頻度: 汎用UTF-8テキスト保存時のみ。現行サンプル保存経路では未使用。
-// 想定頻度: 計測レポートなど、新規テキストファイルの保存時のみ.
+// 想定頻度: 計測レポートなど、新規テキストファイルの保存時のみ。
 bool storage_system::write_utf8_text_new(const std::wstring& path, const std::wstring& text)
 {
     std::vector<std::uint8_t> data;
@@ -359,6 +358,7 @@ bool storage_system::write_utf8_text_new(const std::wstring& path, const std::ws
     return write_binary_exclusive(path, data);
 }
 
+// 想定頻度: 汎用UTF-8テキスト保存時のみ。現行サンプル保存経路では未使用。
 bool storage_system::write_utf8_text_atomic(const std::wstring& path, const std::wstring& text)
 {
     std::vector<std::uint8_t> data;
