@@ -143,6 +143,32 @@ Win32 API を利用して初期 GUI を管理するクラスです。
 
 HTTP 通信や WAV 再生の詳細は扱わず、`tts_controller` へ委譲します。
 
+#### `call_frequency`
+
+関数ごとの呼び出し回数を計測するヘッダーオンリーのクラスです。実装は `call_frequency.h` に置きます。
+
+**設計**
+- `call_frequency<&関数>` のように関数ポインターをテンプレート引数に指定し、関数ごとに独立した静的カウンターを生成します。
+- 計測対象関数内では `call_frequency<&対象関数>::increment()` を呼び出します。
+- カウンターの更新は `std::atomic<std::uint64_t>::fetch_add(1, std::memory_order_relaxed)` のみです。
+- カウンターの識別・保存領域の選択はテンプレートで静的に解決します。実行時の関数名検索、登録テーブル、動的メモリ確保、ロックは使用しません。
+- `get_count()` で現在値を取得し、`reset()` で値を0へ戻します。
+- `memory_order_relaxed` を使用し、カウンター値の整合性のみを保証します。ほかのデータとの同期には使用しません。
+
+**利用例**
+```cpp
+void update()
+{
+    call_frequency<&update>::increment();
+}
+
+const std::uint64_t count = call_frequency<&update>::get_count();
+```
+
+メンバー関数も `call_frequency<&class_name::method_name>` として計測できます。オーバーロード関数は関数ポインター型を明示して選択します。
+
+計測対象への `increment()` の追加は明示的に行います。自動登録や全関数への自動計測は行いません。計測値の一覧表示が必要になった場合は、対象関数を列挙する側で各テンプレートの `get_count()` を呼び出します。
+
 #### `storage_system`
 
 アプリケーション共通のファイル保存窓口です。`storage_system.h / .cpp` に実装します。
